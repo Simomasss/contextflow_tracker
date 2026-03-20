@@ -1,0 +1,20 @@
+# Python dočasné soubory
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtuální prostředí (to nejdůležitější!)
+.venv/
+venv/
+env/
+
+# Databáze (nechceš verzovat svá osobní data o čase)
+*.db
+*.sqlite3
+
+# IDE nastavení
+.vscode/
+.idea/
+
+# Konfigurace s tvými cestami (každý ji má jinou)
+config.yaml
