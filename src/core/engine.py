@@ -4,21 +4,24 @@ from typing import Optional
 
 # Importy tvých modulů
 from ..watchers.window_watcher import WindowWatcher
+from ..watchers.afk_watcher import AFKWatcher
 from .indexer import IndexManager
 from ..database.db_handler import DatabaseManager
 from ..core.schemas import ContextMatch
 
 class ContextEngine:
-    def __init__(self, watcher: WindowWatcher, indexer: IndexManager, db: DatabaseManager, interval: int = 5):
+    def __init__(self, watcher: WindowWatcher, indexer: IndexManager, db: DatabaseManager, afk_watcher: AFKWatcher, interval: int = 5):
         """
         :param watcher: Instance WindowWatcheru
         :param indexer: Instance IndexManageru
-        :param db: Instance DatabaseManageru (tohle ti chybělo)
+        :param db: Instance DatabaseManageru
+        :param afk_watcher: Instance AFKWatcheru
         :param interval: Jak často (v sekundách) se má kontrolovat aktivita
         """
         self.watcher = watcher
         self.indexer = indexer
         self.db = db
+        self.afk_watcher = afk_watcher
         self.interval = interval
         self.is_running = False
         self.current_activity: Optional[ContextMatch] = None
@@ -36,10 +39,15 @@ class ContextEngine:
 
     def _tick(self):
         """Jeden krok cyklu: Seber data -> Vyhodnoť -> Ulož."""
-        window_info = self.watcher.watch()
-        
-        if not window_info:
+        # 1. Nejdřív zjistíme, jestli uživatel u PC vůbec je
+        if self.afk_watcher.watch():
+            # TODO: Později zde pošleme signál do GUI: "Uživatel je AFK"
+            print("[AFK] Uživatel je neaktivní, trackování pozastaveno.")
             return
+
+        # 2. Pokud není AFK, pokračujeme v normální práci
+        window_info = self.watcher.watch()
+        if not window_info: return
 
         match_data = self.indexer.match_title(window_info.title)
         
