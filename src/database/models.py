@@ -1,21 +1,33 @@
-from sqlalchemy import Column, Integer, String, DateTime, Float
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy import String, ForeignKey, DateTime
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from datetime import datetime
+from typing import List
 
 class Base(DeclarativeBase):
     """Základní třída pro všechny naše budoucí tabulky."""
     pass
 
+class Client(Base):
+    __tablename__ = "clients"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    projects: Mapped[List["Project"]] = relationship(back_populates="client")
+
+class Project(Base):
+    __tablename__ = "projects"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    client_id: Mapped[int] = mapped_column(ForeignKey("clients.id"))
+    
+    client: Mapped["Client"] = relationship(back_populates="projects")
+    activities: Mapped[List["ActivityLog"]] = relationship(back_populates="project")
+
 class ActivityLog(Base):
-    """Tabulka, kam budeme sypat každý 'tick' z našeho Enginu."""
     __tablename__ = "activity_logs"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    timestamp = Column(DateTime, default=datetime.now)
-    client_name = Column(String, nullable=False)
-    project_name = Column(String, nullable=False)
-    window_title = Column(String)
-    duration = Column(Integer)  # Délka ticku v sekundách (např. 5)
-
-    def __repr__(self):
-        return f"<Activity(client={self.client_name}, project={self.project_name})>"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"))
+    start_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    end_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    window_title: Mapped[str] = mapped_column(String, nullable=True)
+    
+    project: Mapped["Project"] = relationship(back_populates="activities")

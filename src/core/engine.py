@@ -2,7 +2,6 @@ import time
 from datetime import datetime
 from typing import Optional
 
-# Importy tvých modulů
 from ..watchers.window_watcher import WindowWatcher
 from ..watchers.afk_watcher import AFKWatcher
 from .indexer import IndexManager
@@ -25,6 +24,9 @@ class ContextEngine:
         self.interval = interval
         self.is_running = False
         self.current_activity: Optional[ContextMatch] = None
+        self.pending_match = None
+        self.switch_confirm_count = 0
+        self.REQUIRED_CONFIRMATIONS = 3 # Musí se 3x potvrdit stejný kontext, aby se přeplo CHCE VIC FOSHO
 
     def start(self):
         """Spustí hlavní sledovací smyčku."""
@@ -37,6 +39,56 @@ class ContextEngine:
         except KeyboardInterrupt:
             self.stop()
 
+    def _tick(self):
+        """Jeden krok cyklu: Seber data -> Vyhodnoť -> Ulož."""
+        if self.afk_watcher.watch(): print ("AFK"); return #Jestli je uživatel AFK, nebudeme dělat nic
+        # TODO: Později zde pošleme signál do GUI: "Uživatel je AFK"
+        
+        window_info = self.watcher.watch()
+        if not window_info: return
+        
+        # Indexer vrací dict, my z něj uděláme ContextMatch objekt
+        match_dict = self.indexer.match_title(window_info.title)
+        
+        if match_dict:
+            new_match = ContextMatch(
+                client_name=match_dict['client'],
+                project_name=match_dict['project']
+            )
+            print(f"Zachycen kontext: {new_match.client_name} / {new_match.project_name} (okno: {window_info.title})")
+
+            # Stejný kontext
+            if self.current_activity and new_match.project_name == self.current_activity.project_name:
+                self._write_to_db(new_match, window_info.title)
+                self.switch_confirm_count = 0
+                print("Stejný projekt jako předtím, záznam aktualizován.")
+                print(f"Status: ({self.switch_confirm_count}/{self.REQUIRED_CONFIRMATIONS})")
+            else:
+                # Logika potvrzování změny
+                if self.pending_match and new_match.project_name == self.pending_match.project_name:
+                    self.switch_confirm_count += 1
+                    print(f"NOVÝ Status: ({self.switch_confirm_count}/{self.REQUIRED_CONFIRMATIONS})")
+                else:
+                    self.pending_match = new_match
+                    self.switch_confirm_count = 1
+                    print(f"NOVÝ 2 Status: ({self.switch_confirm_count}/{self.REQUIRED_CONFIRMATIONS})")
+
+                
+                if self.switch_confirm_count >= self.REQUIRED_CONFIRMATIONS:
+                    self.current_activity = new_match
+                    self._write_to_db(new_match, window_info.title)
+                    print(f"POTVRZENO Status: ({self.switch_confirm_count}/{self.REQUIRED_CONFIRMATIONS})")
+                    #TODO: Po změne by to chtelo ten cekaci cas nekde cacheovat 
+                    # a pak ho forcenout do db aby se neztratil konverzni cas
+
+    def _write_to_db(self, match: ContextMatch, title: str):
+        self.db.log_activity(match.client_name, match.project_name, title, self.interval)
+
+    def stop(self):
+        self.is_running = False
+        print("Engine se zastavuje...")
+
+''''
     def _tick(self):
         """Jeden krok cyklu: Seber data -> Vyhodnoť -> Ulož."""
         # 1. Nejdřív zjistíme, jestli uživatel u PC vůbec je
@@ -64,7 +116,4 @@ class ContextEngine:
             print("Okno je na whitelistu, ale nenalezeno v indexu souborů")
             print(f"Zachycené okno: {window_info.title}")
             pass
-
-    def stop(self):
-        self.is_running = False
-        print("Engine se zastavuje...")
+'''
