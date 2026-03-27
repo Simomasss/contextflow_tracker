@@ -29,5 +29,6 @@ class ActivityLog(Base):
     start_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     end_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     window_title: Mapped[str] = mapped_column(String, nullable=True)
+    executable: Mapped[str] = mapped_column(String, nullable=True)
     
     project: Mapped["Project"] = relationship(back_populates="activities")

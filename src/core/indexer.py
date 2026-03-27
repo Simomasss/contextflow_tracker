@@ -40,19 +40,7 @@ class IndexManager:
 
         self.lookup_map = new_map
         print(f"Index aktualizován: {len(self.lookup_map)} sledovaných položek.")
-    ''' - kratka shoda klice
-    def match_title(self, window_title: str) -> Optional[dict]:
-        """Tady se děje to kouzlo, o kterém jsi mluvil."""
-        title_lower = window_title.lower()
-        
-        # Projdeme naši mapu a zkusíme, jestli je nějaký klíč v titulku okna
-        for key, info in self.lookup_map.items():
-            # Pokud se název souboru (klíč) nachází v titulku okna (např. "Word - analyza.docx")
-            if key in title_lower and len(key) > 3: # len > 3 je ochrana proti krátkým nesmyslům
-                return info
-        
-        return None
-    '''
+
     def match_title(self, window_title: str) -> Optional[dict]:
         title_lower = window_title.lower()
         
@@ -70,3 +58,17 @@ class IndexManager:
         
         # Vrátíme tu nejdelší (nejpřesnější) shodu
         return best_match
+    
+    ''' - kratka shoda klice
+    def match_title(self, window_title: str) -> Optional[dict]:
+        """Tady se děje to kouzlo, o kterém jsi mluvil."""
+        title_lower = window_title.lower()
+        
+        # Projdeme naši mapu a zkusíme, jestli je nějaký klíč v titulku okna
+        for key, info in self.lookup_map.items():
+            # Pokud se název souboru (klíč) nachází v titulku okna (např. "Word - analyza.docx")
+            if key in title_lower and len(key) > 3: # len > 3 je ochrana proti krátkým nesmyslům
+                return info
+        
+        return None
+    '''
