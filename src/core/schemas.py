@@ -6,6 +6,7 @@ class WindowInfo(BaseModel):
     """Informace zachycené z operačního systému."""
     title: str
     executable: str
+    is_whitelisted: bool = Field(default=False)
     
     # OPRAVA: default_factory!
     # Pokud napíšeš timestamp: datetime = datetime.now(), 

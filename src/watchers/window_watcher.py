@@ -17,12 +17,15 @@ class WindowWatcher(BaseWatcher):
             _, pid = win32process.GetWindowThreadProcessId(hwnd)
             process = psutil.Process(pid)
             exe_name = process.name().lower()
+
+            is_whitelisted = exe_name in self.whitelist
             
-            if exe_name in self.whitelist:
-                return WindowInfo(
-                    title=win32gui.GetWindowText(hwnd),
-                    executable=exe_name
-                )
+            return WindowInfo(
+                title=win32gui.GetWindowText(hwnd),
+                executable=exe_name,
+                is_whitelisted=is_whitelisted # Ted watcher bude vracet i info o whitelistu, místo None
+            )
+
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             pass
         return None

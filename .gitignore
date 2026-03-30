@@ -18,3 +18,4 @@ env/
 
 # Konfigurace s tvými cestami (každý ji má jinou)
 config.yaml
+config.py
