@@ -3,7 +3,7 @@ from src.database.db_handler import DatabaseManager
 from src.core.indexer import IndexManager
 from src.watchers.afk_watcher import AFKWatcher
 from src.watchers.window_watcher import WindowWatcher
-from src.watchers.file_watcher import FileWatcher # Importujeme!
+from src.watchers.file_watcher import FileWatcher
 from src.core.engine import ContextEngine
 from src.core.config import AppSettings
 
@@ -15,7 +15,6 @@ def main():
             AFK_THRESHOLD=300,
             WHITELIST=["Code.exe", "WINWORD.EXE", "chrome.exe", "Excel.exe", "Figma.exe", "Explorer.exe"],
             MAIN_FOLDER = "C:/Users/donth/VSE/BAKALARKA/MAIN"
-
         )
 
     # 1. Inicializace a předání nastavení
