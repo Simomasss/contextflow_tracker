@@ -7,7 +7,7 @@ from src.core.config import AppSettings
 def test_print_invoice():
     # Připojíme se k testovací DB
     settings = AppSettings(MAIN_FOLDER="C:/Users/donth/VSE/BAKALARKA/MAIN")
-    db = DatabaseManager(settings=settings, db_url="sqlite:///TESTcontextflow.db")
+    db = DatabaseManager(settings=settings, db_url="sqlite:///contextflow.db")
     
     agg = ActivityAggregator(db)
     

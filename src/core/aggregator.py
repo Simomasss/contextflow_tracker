@@ -1,5 +1,6 @@
 from datetime import datetime, date, timedelta, time
 from sqlalchemy import select, func
+from sqlalchemy.orm import joinedload
 from ..database.models import ActivityLog, Project, Client, BillingProfile
 
 class ActivityAggregator:
@@ -7,12 +8,17 @@ class ActivityAggregator:
         self.db = db_manager
 
     def get_raw_logs(self, start_date: datetime, end_date: datetime):
-        """Základní metoda pro získání logů v rozmezí."""
+        """Základní metoda pro získání logů v rozmezí s přednačtením projektů."""
         with self.db.Session() as session:
-            stmt = select(ActivityLog).where(
-                ActivityLog.start_time >= start_date,
-                ActivityLog.end_time <= end_date
-            ).order_by(ActivityLog.start_time)
+            stmt = (
+                select(ActivityLog)
+                .options(joinedload(ActivityLog.project)) # <-- TADY JE TA OPRAVA
+                .where(
+                    ActivityLog.start_time >= start_date,
+                    ActivityLog.end_time <= end_date
+                )
+                .order_by(ActivityLog.start_time)
+            )
             return session.execute(stmt).scalars().all()
 
     def get_summary_for_billing(self, project_id: int, start_date: datetime, end_date: datetime):
@@ -110,3 +116,27 @@ class ActivityAggregator:
                 }
             }
             return invoice_package
+
+    def get_all_clients_summary(self):
+        """Vrátí seznam všech klientů a jejich celkový čas v sekundách."""
+        with self.db.Session() as session:
+            # Načteme klienty i s jejich projekty a logy
+            stmt = select(Client).options(joinedload(Client.projects).joinedload(Project.logs))
+            clients = session.execute(stmt).unique().scalars().all()
+            
+            summary = []
+            for c in clients:
+                total_sec = 0
+                for p in c.projects:
+                    total_sec += sum((l.end_time - l.start_time).total_seconds() for l in p.logs)
+                
+                summary.append({
+                    "id": c.id,
+                    "name": c.name,
+                    "total_hours": total_sec / 3600,
+                    "address": c.address or "",
+                    "ico": c.ico or "",
+                    "dic": c.dic or "",
+                    "email": c.email or ""
+                })
+            return summary

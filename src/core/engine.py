@@ -28,12 +28,7 @@ class ContextEngine:
         self.pending_activity: Optional[ContextMatch] = None # Projekt, který se "rýsuje" jako nový, ale ještě nemáme potvrzeno, že tam opravdu jsme
         self.timer = 0 # Počítadlo ticků pro potvrzení změny
 
-
         self.is_running = False
-        #self.pending_match: Optional[ContextMatch] = None
-        #self.pending_start_time: Optional[datetime] = None
-        #self.switch_confirm_count = 0
-        #self.last_whitelist_seen: Optional[datetime] = None # Pro GRACE PERIOD
 
     def start(self):
         """Spustí hlavní sledovací smyčku."""

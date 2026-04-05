@@ -9,13 +9,7 @@ from src.core.config import AppSettings
 
 def main():
     # Nastavení
-    settings = AppSettings(
-            TICK_INTERVAL=5,
-            PROTECTION_MINUTES=1.0,
-            AFK_THRESHOLD=300,
-            WHITELIST=["Code.exe", "WINWORD.EXE", "chrome.exe", "Excel.exe", "Figma.exe", "Explorer.exe"],
-            MAIN_FOLDER = "C:/Users/donth/VSE/BAKALARKA/MAIN"
-        )
+    settings = AppSettings()
 
     # 1. Inicializace a předání nastavení
     db = DatabaseManager(settings=settings)

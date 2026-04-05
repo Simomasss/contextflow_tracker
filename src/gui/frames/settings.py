@@ -1,0 +1,125 @@
+import customtkinter as ctk
+from tkinter import messagebox
+
+class SettingsFrame(ctk.CTkFrame):
+    def __init__(self, master, settings, **kwargs):
+        super().__init__(master, **kwargs)
+        self.settings = settings
+        self.entries = {} # Slovník pro snadný přístup k polím
+
+        # Nadpis
+        ctk.CTkLabel(self, text="Konfigurace systému", font=ctk.CTkFont(size=22, weight="bold")).pack(pady=(10, 20))
+
+        # Vytvoření skrolovací oblasti, kdyby se nastavení nevešla na obrazovku
+        self.scroll_frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        self.scroll_frame.pack(fill="both", expand=True, padx=20, pady=10)
+
+        # --- SEKCE: CESTY A DATABÁZE ---
+        self._add_section_header("Cesty a Systém")
+        self._create_setting_field("MAIN_FOLDER", "Složka s projekty (Path):", "Cesta k hlavní složce s vaší prací.")
+        self._create_setting_field("DB_URL", "Databázové spojení (URL):", "sqlite:///contextflow.db")
+
+        # --- SEKCE: LOGIKA SLEDOVÁNÍ ---
+        self._add_section_header("Logika sledování")
+        self._create_setting_field("PROTECTION_MINUTES", "Ochranná lhůta (min):", "Jak dlouho čekat, než potvrdíme změnu kontextu.")
+        self._create_setting_field("TICK_INTERVAL", "Interval kontroly (sec):", "Jak často engine kontroluje aktivní okno.")
+        self._create_setting_field("AFK_THRESHOLD", "AFK limit (sec):", "Doba nečinnosti, po které se stopne měření.")
+
+        # --- SEKCE: FILTRY ---
+        self._add_section_header("Filtry procesů")
+        self._create_setting_field("WHITELIST", "Povolené procesy (Whitelist):", "Seznam .exe souborů oddělených čárkou.")
+
+        # --- TLAČÍTKO ULOŽIT ---
+        self.save_btn = ctk.CTkButton(
+            self, 
+            text="Uložit všechna nastavení", 
+            command=self.save_settings,
+            font=ctk.CTkFont(weight="bold"),
+            height=40
+        )
+        self.save_btn.pack(pady=20)
+
+    def _add_section_header(self, text):
+        """Pomocná metoda pro vizuální oddělení sekcí."""
+        lbl = ctk.CTkLabel(self.scroll_frame, text=text.upper(), font=ctk.CTkFont(size=12, weight="bold"), text_color="gray")
+        lbl.pack(anchor="w", pady=(15, 5), padx=5)
+
+    def _create_setting_field(self, key, label_text, placeholder):
+        """Vytvoří popisek a vstupní pole pro daný klíč nastavení."""
+        container = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
+        container.pack(fill="x", pady=5)
+
+        lbl = ctk.CTkLabel(container, text=label_text, width=200, anchor="w")
+        lbl.pack(side="left", padx=5)
+
+        entry = ctk.CTkEntry(container, placeholder_text=placeholder)
+        
+        # Načtení aktuální hodnoty ze settings objektu
+        current_val = getattr(self.settings, key)
+        
+        # Pokud je to list (Whitelist), převedeme ho na string s čárkami
+        if isinstance(current_val, list):
+            entry.insert(0, ", ".join(current_val))
+        else:
+            entry.insert(0, str(current_val))
+            
+        entry.pack(side="right", fill="x", expand=True, padx=5)
+        self.entries[key] = entry
+
+    def save_settings(self):
+        """Přečte data z polí, zkonvertuje typy a uloží do JSONu."""
+        try:
+            # 1. Načtení a konverze dat
+            self.settings.MAIN_FOLDER = self.entries["MAIN_FOLDER"].get()
+            self.settings.DB_URL = self.entries["DB_URL"].get()
+            self.settings.PROTECTION_MINUTES = float(self.entries["PROTECTION_MINUTES"].get())
+            self.settings.TICK_INTERVAL = int(self.entries["TICK_INTERVAL"].get())
+            self.settings.AFK_THRESHOLD = int(self.entries["AFK_THRESHOLD"].get())
+            
+            # 2. Zpracování Whitelistu (string -> list)
+            whitelist_raw = self.entries["WHITELIST"].get()
+            self.settings.WHITELIST = [item.strip() for item in whitelist_raw.split(",") if item.strip()]
+
+            # 3. Uložení do souboru
+            self.settings.save()
+            
+            messagebox.showinfo("Úspěch", "Nastavení bylo úspěšně uloženo do settings.json.\nZměny se projeví po restartu aplikace.")
+            
+        except ValueError as e:
+            messagebox.showerror("Chyba", "Zkontrolujte číselné hodnoty (Interval, AFK, Ochranná lhůta musí být čísla).")
+        except Exception as e:
+            messagebox.showerror("Chyba", f"Nepodařilo se uložit nastavení: {e}")
+
+
+'''
+import customtkinter as ctk
+
+class SettingsFrame(ctk.CTkFrame):
+    def __init__(self, master, settings, **kwargs):
+        super().__init__(master, **kwargs)
+        self.settings = settings
+
+        ctk.CTkLabel(self, text="Globální nastavení", font=("Arial", 20, "bold")).pack(pady=20)
+
+        # Hlavní složka
+        ctk.CTkLabel(self, text="Složka s projekty:").pack(anchor="w", padx=40)
+        self.folder_entry = ctk.CTkEntry(self, width=400)
+        self.folder_entry.insert(0, self.settings.MAIN_FOLDER)
+        self.folder_entry.pack(pady=(0, 20))
+
+        # Ochranná lhůta
+        ctk.CTkLabel(self, text="Protection Minutes (lhůta pro přepnutí):").pack(anchor="w", padx=40)
+        self.prot_entry = ctk.CTkEntry(self, width=100)
+        self.prot_entry.insert(0, str(self.settings.PROTECTION_MINUTES))
+        self.prot_entry.pack(pady=(0, 20))
+
+        # Tlačítko Uložit
+        self.save_btn = ctk.CTkButton(self, text="Uložit nastavení", fg_color="blue", command=self.save)
+        self.save_btn.pack(pady=40)
+
+    def save(self):
+        self.settings.MAIN_FOLDER = self.folder_entry.get()
+        self.settings.PROTECTION_MINUTES = float(self.prot_entry.get())
+        self.settings.save()
+        print("✓ Nastavení uloženo do settings.json")
+'''
