@@ -67,6 +67,91 @@ class ActivityAggregator:
             
         return stats
     
+
+    def get_invoice_data(self, project_ids: list[int], start_date: date, end_date: date):
+        with self.db.Session() as session:
+            # 1. Základní entity (bereme z prvního projektu, klient je stejný)
+            first_project = session.get(Project, project_ids[0])
+            client = first_project.client
+            profile = session.execute(select(BillingProfile)).scalar_one_or_none()
+            
+            # 2. Sběr dat pro jednotlivé projekty
+            jobs = []
+            grand_total = 0
+            
+            for pid in project_ids:
+                proj = session.get(Project, pid)
+                start_dt = datetime.combine(start_date, time.min)
+                end_dt = datetime.combine(end_date, time.max)
+                
+                summary = self.get_summary_for_billing(pid, start_dt, end_dt)
+                
+                if summary["billable_hours"] > 0:
+                    jobs.append({
+                        "name": proj.name,
+                        "hours": summary["billable_hours"],
+                        "rate": summary["rate"],
+                        "total": summary["total_price"],
+                        "currency": summary["currency"]
+                    })
+                    grand_total += summary["total_price"]
+
+            return {
+                "sender": { "name": profile.name if profile else "...", "address": profile.address or "...", "ico": profile.ico or "...", "dic": profile.dic or "...", "bank_account": profile.bank_account or "..." },
+                "recipient": { "name": client.name, "address": client.address or "...", "ico": client.ico or "...", "dic": client.dic or "...", "email": client.email or "..." },
+                "period": f"{start_date.strftime('%d.%m.%Y')} - {end_date.strftime('%d.%m.%Y')}",
+                "jobs": jobs, # Seznam projektů
+                "grand_total": grand_total,
+                "currency": jobs[0]["currency"] if jobs else "CZK"
+            }
+
+
+    def get_all_clients_summary(self):
+        """Vrátí seznam všech klientů a jejich celkový čas v sekundách."""
+        with self.db.Session() as session:
+            # Načteme klienty i s jejich projekty a logy
+            stmt = select(Client).options(joinedload(Client.projects).joinedload(Project.logs))
+            clients = session.execute(stmt).unique().scalars().all()
+            
+            summary = []
+            for c in clients:
+                total_sec = 0
+                for p in c.projects:
+                    total_sec += sum((l.end_time - l.start_time).total_seconds() for l in p.logs)
+                
+                summary.append({
+                    "id": c.id,
+                    "name": c.name,
+                    "total_hours": total_sec / 3600,
+                    "address": c.address or "",
+                    "ico": c.ico or "",
+                    "dic": c.dic or "",
+                    "email": c.email or ""
+                })
+            return summary
+        
+    def get_project_hours(self, project_id: int, start_date: date, end_date: date) -> float:
+        """Vrátí celkový počet hodin pro daný projekt v daném období."""
+        with self.db.Session() as session:
+            # Převedeme date na datetime pro porovnání v DB
+            start_dt = datetime.combine(start_date, datetime.min.time())
+            end_dt = datetime.combine(end_date, datetime.max.time())
+            
+            # Sečteme délku všech logů
+            stmt = (
+                select(ActivityLog)
+                .where(
+                    ActivityLog.project_id == project_id,
+                    ActivityLog.start_time >= start_dt,
+                    ActivityLog.end_time <= end_dt
+                )
+            )
+            logs = session.execute(stmt).scalars().all()
+            
+            total_seconds = sum((log.end_time - log.start_time).total_seconds() for log in logs)
+            return total_seconds / 3600  # Převod na hodiny
+        
+'''
     def get_invoice_data(self, project_id: int, start_date: date, end_date: date):
         """
         Posbírá kompletní data pro fakturu: Odesílatel, Příjemce, Čas a Peníze.
@@ -116,27 +201,4 @@ class ActivityAggregator:
                 }
             }
             return invoice_package
-
-    def get_all_clients_summary(self):
-        """Vrátí seznam všech klientů a jejich celkový čas v sekundách."""
-        with self.db.Session() as session:
-            # Načteme klienty i s jejich projekty a logy
-            stmt = select(Client).options(joinedload(Client.projects).joinedload(Project.logs))
-            clients = session.execute(stmt).unique().scalars().all()
-            
-            summary = []
-            for c in clients:
-                total_sec = 0
-                for p in c.projects:
-                    total_sec += sum((l.end_time - l.start_time).total_seconds() for l in p.logs)
-                
-                summary.append({
-                    "id": c.id,
-                    "name": c.name,
-                    "total_hours": total_sec / 3600,
-                    "address": c.address or "",
-                    "ico": c.ico or "",
-                    "dic": c.dic or "",
-                    "email": c.email or ""
-                })
-            return summary
+'''

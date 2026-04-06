@@ -36,6 +36,7 @@ class ContextFlowLauncher:
         icon_img = Image.new('RGB', (64, 64), color=(31, 83, 141))
         self.icon = pystray.Icon("ContextFlow", icon_img, "ContextFlow", menu=pystray.Menu(
             pystray.MenuItem("Otevřít přehled", self.show_gui),
+            pystray.MenuItem("Schovat okno", self.hide_gui),
             pystray.MenuItem("Ukončit", self.quit_app)
         ))
 

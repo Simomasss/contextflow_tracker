@@ -30,6 +30,7 @@ class ContextEngine:
 
         self.is_running = False
 
+#TODO: pro pripad, kdyz force ukoncovani
     def start(self):
         """Spustí hlavní sledovací smyčku."""
         self.is_running = True

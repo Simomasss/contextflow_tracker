@@ -32,7 +32,7 @@ def setup_mock_data():
             rounding_minutes=15
         )
         session.add(profile)
-
+        '''
         # 2. KLIENTI
         adam = Client(
             name="Adam", 
@@ -47,6 +47,14 @@ def setup_mock_data():
             ico="55667788", 
             dic="CZ55667788", 
             email="pepa.dedictvi@gmail.com"
+        )
+        '''
+        adam = Client(
+            name="Adam", 
+            address="U Lesa 5, Brno, 602 00"
+        )
+        pepa = Client(
+            name="Pepa"
         )
         session.add_all([adam, pepa])
         session.flush()

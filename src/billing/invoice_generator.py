@@ -22,9 +22,12 @@ class InvoiceGenerator:
             self.pdf.image(self.data['sender']['logo_path'], 10, 8, 33)
         
         self.pdf.set_font("Helvetica", 'B', 16)
-        # Nový způsob odřádkování: new_x="LMARGIN", new_y="NEXT"
         self.pdf.cell(0, 10, "FAKTURA - DANOVY DOKLAD", new_x="LMARGIN", new_y="NEXT", align='R')
         self.pdf.ln(10)
+        # --- TADY PŘIDÁME OBDOBÍ ---
+        self.pdf.set_font("Helvetica", '', 10)
+        self.pdf.cell(0, 10, f"Fakturacni obdobi: {self.data['period']}", new_x="LMARGIN", new_y="NEXT", align='R')
+        self.pdf.ln(5)
 
         # 2. ADRESY
         self.pdf.set_font("Helvetica", 'B', 11)
@@ -46,27 +49,28 @@ class InvoiceGenerator:
         self.pdf.cell(0, 10, f"Bankovni ucet: {self.data['sender']['bank_account']}", new_x="LMARGIN", new_y="NEXT", fill=True)
         self.pdf.ln(5)
 
-        # 4. TABULKA PRÁCE
+        # 4. TABULKA PRÁCE (Hlavička)
         self.pdf.set_font("Helvetica", 'B', 10)
         self.pdf.cell(100, 10, "Popis prace / Projekt", border=1, new_x="RIGHT", new_y="TOP")
         self.pdf.cell(30, 10, "Hodin", border=1, align='C', new_x="RIGHT", new_y="TOP")
         self.pdf.cell(30, 10, "Sazba", border=1, align='C', new_x="RIGHT", new_y="TOP")
         self.pdf.cell(30, 10, "Celkem", border=1, align='C', new_x="LMARGIN", new_y="NEXT")
 
+        # 4b. ŘÁDKY TABULKY (Dynamicky pro každý projekt)
         self.pdf.set_font("Helvetica", size=10)
-        job = self.data['job']
-        self.pdf.cell(100, 10, f"{job['project_name']} ({job['period']})", border=1, new_x="RIGHT", new_y="TOP")
-        self.pdf.cell(30, 10, f"{job['total_hours']}", border=1, align='C', new_x="RIGHT", new_y="TOP")
-        self.pdf.cell(30, 10, f"{job['hourly_rate']} {job['currency']}", border=1, align='C', new_x="RIGHT", new_y="TOP")
-        self.pdf.cell(30, 10, f"{job['total_price']:.2f} {job['currency']}", border=1, align='C', new_x="LMARGIN", new_y="NEXT")
-        self.pdf.ln(15)
+        for job in self.data['jobs']:
+            self.pdf.cell(100, 10, f"{job['name']}", border=1, new_x="RIGHT", new_y="TOP")
+            self.pdf.cell(30, 10, f"{job['hours']}", border=1, align='C', new_x="RIGHT", new_y="TOP")
+            self.pdf.cell(30, 10, f"{job['rate']} {job['currency']}", border=1, align='C', new_x="RIGHT", new_y="TOP")
+            self.pdf.cell(30, 10, f"{job['total']:.2f} {job['currency']}", border=1, align='C', new_x="LMARGIN", new_y="NEXT")
+        
+        self.pdf.ln(10)
 
-        # 5. REKAPITULACE
+        # 5. REKAPITULACE (Z grand_total)
         self.pdf.set_font("Helvetica", 'B', 12)
         self.pdf.cell(160, 10, "CELKEM K UHRADE:", align='R', new_x="RIGHT", new_y="TOP")
         self.pdf.set_text_color(255, 0, 0)
-        self.pdf.cell(30, 10, f"{job['total_price']:.2f} {job['currency']}", align='R', new_x="LMARGIN", new_y="NEXT")
-
+        self.pdf.cell(30, 10, f"{self.data['grand_total']:.2f} {self.data['currency']}", align='R', new_x="LMARGIN", new_y="NEXT")
         # Export
         self.pdf.output(output_path)
         print(f"✓ PDF Faktura vytvořena: {output_path}")
