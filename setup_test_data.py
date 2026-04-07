@@ -1,3 +1,4 @@
+import logging
 import random
 from datetime import datetime, timedelta, time
 from src.database.db_handler import DatabaseManager
@@ -109,9 +110,9 @@ def setup_mock_data():
         ))
 
         session.commit()
-        print(f"✓ Databáze contextflow.db byla úspěšně aktualizována.")
-        print(f"✓ Vygenerovány 3 logy pro dnešek ({now.strftime('%d.%m.%Y')}).")
-        print(f"✓ Všechny spustitelné soubory jsou v lowercase.")
+        logging.info(f"✓ Databáze contextflow.db byla úspěšně aktualizována.")
+        logging.info(f"✓ Vygenerovány 3 logy pro dnešek ({now.strftime('%d.%m.%Y')}).")
+        logging.info(f"✓ Všechny spustitelné soubory jsou v lowercase.")
 
 if __name__ == "__main__":
     setup_mock_data()

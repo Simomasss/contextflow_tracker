@@ -7,12 +7,14 @@ from PIL import Image
 import os
 import sys
 import customtkinter as ctk
-
+from src.utils.logger_config import setup_logging
+import logging
 
 # Importy komponent
 from src.core.config import AppSettings
 from src.database.db_handler import DatabaseManager
 from src.core.indexer import IndexManager
+from src.gui.frames.setup_window import SetupWindow
 from src.watchers.window_watcher import WindowWatcher
 from src.watchers.afk_watcher import AFKWatcher
 from src.watchers.file_watcher import FileWatcher
@@ -63,7 +65,7 @@ class ContextFlowLauncher:
         try:
             self.gui.iconbitmap(self.icon_path)
         except Exception as e:
-            print(f"Nepodařilo se načíst ikonu okna: {e}")
+            logging.info(f"Nepodařilo se načíst ikonu okna: {e}")
         self.gui.protocol("WM_DELETE_WINDOW", self.hide_gui)
 
         # 3. NASTAVENÍ TRAY IKONKY
@@ -71,7 +73,7 @@ class ContextFlowLauncher:
             # PIL umí otevřít .ico a vybrat z něj nejlepší rozlišení
             tray_img = Image.open(self.icon_path)
         except Exception as e:
-            print(f"Ikonku v {self.icon_path} se nepodařilo načíst: {e}")
+            logging.info(f"Ikonku v {self.icon_path} se nepodařilo načíst: {e}")
             # Fallback na ten tvůj modrý čtverec, kdyby ikonka chyběla
             tray_img = Image.new('RGB', (64, 64), color=(31, 83, 141))
 
@@ -92,7 +94,7 @@ class ContextFlowLauncher:
         try:
             self.engine.start()
         except Exception as e:
-            print(f"Engine Error: {e}")
+            logging.info(f"Engine Error: {e}")
 
     def start(self):
         # A. Engine ve vlákně
@@ -112,11 +114,11 @@ class ContextFlowLauncher:
 
         # D. GUI MAINLOOP V HLAVNÍM VLÁKNĚ
         # Tohle musí být poslední řádek, který "drží" aplikaci naživu
-        print("✓ ContextFlow běží. GUI v hlavním vlákně, Tray ve vedlejším.")
+        logging.info("✓ ContextFlow běží. GUI v hlavním vlákně, Tray ve vedlejším.")
         self.gui.mainloop()
 
     def quit_app(self, icon=None, item=None):
-        print("Ukončování...")
+        logging.info("Ukončování...")
         
         # 1. Zastavíme tray a engine (věci mimo GUI)
         self.icon.stop()
@@ -135,22 +137,28 @@ class ContextFlowLauncher:
         # Důležité: Commit a zavření DB spojení
         # Pokud tvůj db_handler má metodu close(), zavolej ji tady
         
-        print("Všechna data uložena. Nashledanou.")
+        logging.info("Všechna data uložena. Nashledanou.")
         os._exit(0)
 
     def initial_setup(self):
-        """Vynucený výběr složky při prvním startu."""
-        root = tkinter.Tk() # FUNGUJE?
-        root.withdraw()
-        messagebox.showinfo("ContextFlow Setup", "Vítejte! Vyberte prosím složku MAIN pro sledování projektů.")
-        
-        path = filedialog.askdirectory(title="Vyberte složku s projekty")
-        if path:
-            self.settings.MAIN_FOLDER = path
-            self.settings.save() # Uložíme do JSONu
-            root.destroy()
+        """Spustí onboarding okno z gui/frames."""
+        selected_path = []
+
+        def handle_selection(path):
+            selected_path.append(path)
+
+        # Spustíme naimportované okno
+        setup_win = SetupWindow(on_folder_select=handle_selection)
+        setup_win.mainloop()
+
+        if selected_path:
+            self.settings.MAIN_FOLDER = selected_path[0]
+            # Defaultní whitelist, aby to hned fungovalo
+            if not self.settings.WHITELIST:
+                self.settings.WHITELIST = ["code.exe", "pycharm64.exe", "notepad++.exe"]
+            self.settings.save()
         else:
-            messagebox.showerror("Chyba", "Bez složky nelze pokračovat.")
+            # Pokud uživatel zavřel setup bez výběru, nepokračujeme
             sys.exit()
 
     def add_to_startup(self):
@@ -163,129 +171,14 @@ class ContextFlowLauncher:
                 key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_SET_VALUE)
                 winreg.SetValueEx(key, "ContextFlow", 0, winreg.REG_SZ, app_path)
                 winreg.CloseKey(key)
-                print("✓ Aplikace přidána do po spuštění.")
+                logging.info("✓ Aplikace přidána do po spuštění.")
             except Exception as e:
-                print(f"Nepodařilo se zapsat do registru: {e}")
+                logging.info(f"Nepodařilo se zapsat do registru: {e}")
 
 if __name__ == "__main__":
-    launcher = ContextFlowLauncher()
-    launcher.start()
-
-'''
-import threading
-import pystray
-from PIL import Image
-import os
-import sys
-import tkinter as tk
-from tkinter import filedialog, messagebox
-import customtkinter as ctk
-
-# Importy tvých komponent
-from src.core.config import AppSettings
-from src.database.db_handler import DatabaseManager
-from src.core.indexer import IndexManager
-from src.watchers.window_watcher import WindowWatcher
-from src.watchers.afk_watcher import AFKWatcher
-from src.watchers.file_watcher import FileWatcher
-from src.core.engine import ContextEngine
-from src.gui.app import ContextFlowGUI
-
-class ContextFlowLauncher:
-    def __init__(self):
-        # 0. NASTAVENÍ VZHLEDU
-        ctk.set_appearance_mode("dark")
-        ctk.set_default_color_theme("blue")
-
-        # 1. NASTAVENÍ A ZÁKLADNÍ SLUŽBY
-        self.settings = AppSettings()
-        
-        # --- LOGIKA PRVNÍHO SPUŠTĚNÍ (Výběr složky) ---
-        if not self.settings.MAIN_FOLDER or not os.path.exists(self.settings.MAIN_FOLDER):
-            self.setup_main_folder()
-
-        self.db = DatabaseManager(settings=self.settings)
-        self.indexer = IndexManager(self.settings.MAIN_FOLDER) # Přidáno self.db podle backlogu
-        self.watcher = WindowWatcher(self.settings.WHITELIST)
-        self.afk = AFKWatcher(threshold_seconds=self.settings.AFK_THRESHOLD)
-        
-        self.fw = FileWatcher(self.indexer)
-        self.engine = ContextEngine(self.watcher, self.indexer, self.db, afk_watcher=self.afk, settings=self.settings)
-        
-        # Inicializace GUI proměnné
-        self.gui = None
-        
-        # 2. TRAY INICIALIZACE
-        icon_img = Image.new('RGB', (64, 64), color=(31, 83, 141)) # Zde můžeš pak dát soubor s ikonou
-        self.icon = pystray.Icon("ContextFlow", icon_img, "ContextFlow", menu=pystray.Menu(
-            pystray.MenuItem("Otevřít přehled", self.show_gui),
-            pystray.MenuItem("Ukončit", self.quit_app)
-        ))
-
-    def setup_main_folder(self):
-        """Vytvoří dočasné okno pro výběr složky MAIN."""
-        root = tk.Tk()
-        root.withdraw() # Skrýt hlavní okno tk
-        
-        messagebox.showinfo("Nastavení", "Vítejte! Vyberte prosím vaši hlavní složku (MAIN), kde máte projekty, nebo vytvořte novou.")
-        
-        selected_path = filedialog.askdirectory(title="Vyberte složku s projekty")
-        
-        if not selected_path:
-            messagebox.showwarning("Chyba", "Složka nebyla vybrána. Aplikace se ukončí.")
-            sys.exit()
-            
-        # Uložit do settings (AppSettings by mělo mít metodu na uložení do JSON)
-        # Předpokládám, že tvůj settings.json se jmenuje MAIN_FOLDER
-        self.settings.MAIN_FOLDER = selected_path
-        # Zde by bylo dobré zavolat self.settings.save() pokud to máš implementované
-        
-        root.destroy()
-
-    def run_engine_loop(self):
-        try:
-            self.engine.start()
-        except Exception as e:
-            print(f"Kritická chyba v Enginu: {e}")
-
-    def show_gui(self):
-        """Zobrazí okno. Pokud neexistuje, vytvoří ho. Pokud je skryté, ukáže ho."""
-        if self.gui is None:
-            self.gui = ContextFlowGUI() 
-            # DŮLEŽITÉ: Místo ničení jen schováme
-            self.gui.protocol("WM_DELETE_WINDOW", self.hide_gui)
-            self.gui.mainloop()
-        else:
-            self.gui.deiconify() # Objevit skryté okno
-            self.gui.focus()
-
-    def hide_gui(self):
-        """Schová okno bez ukončení aplikace."""
-        if self.gui:
-            self.gui.withdraw()
-
-    def start(self):
-        # A. FileWatcher
-        self.fw.start()
-        
-        # B. Engine vlákno
-        self.engine_thread = threading.Thread(target=self.run_engine_loop, daemon=True)
-        self.engine_thread.start()
-        
-        # C. Tray ikonka (běží v hlavním vlákně)
-        print("✓ ContextFlow běží v Tray liště.")
-        self.icon.run()
-
-    def quit_app(self):
-        print("\nUkončování...")
-        if self.gui:
-            self.gui.destroy()
-        self.engine.stop()
-        self.fw.stop()
-        self.icon.stop()
-        os._exit(0)
-
-if __name__ == "__main__":
-    launcher = ContextFlowLauncher()
-    launcher.start()
-'''
+    setup_logging() # Teď už všechno, co logujeme, půjde do souboru
+    try:
+        launcher = ContextFlowLauncher()
+        launcher.start()
+    except Exception as e:
+        logging.error(f"Kritická chyba při startu aplikace: {e}", exc_info=True)

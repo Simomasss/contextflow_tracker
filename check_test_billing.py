@@ -20,7 +20,7 @@ def test_print_invoice():
     )
 
     if not invoice_data:
-        print("Projekt nenalezen!")
+        logging.info("Projekt nenalezen!")
         return
     else: 
         gen = InvoiceGenerator(invoice_data)
@@ -32,23 +32,23 @@ if __name__ == "__main__":
     test_print_invoice()
 
 '''
-print("\n" + "="*50)
-    print(" NÁHLED PODKLADŮ PRO FAKTURU ".center(50, "="))
-    print("="*50)
+logging.info("\n" + "="*50)
+    logging.info(" NÁHLED PODKLADŮ PRO FAKTURU ".center(50, "="))
+    logging.info("="*50)
     
-    print(f"\nODESÍLATEL: {invoice_data['sender']['name']}")
-    print(f"IČO: {invoice_data['sender']['ico']} | Účet: {invoice_data['sender']['bank_account']}")
+    logging.info(f"\nODESÍLATEL: {invoice_data['sender']['name']}")
+    logging.info(f"IČO: {invoice_data['sender']['ico']} | Účet: {invoice_data['sender']['bank_account']}")
     
-    print(f"\nPŘÍJEMCE: {invoice_data['recipient']['name']}")
-    print(f"Adresa: {invoice_data['recipient']['address']}")
-    print(f"IČO: {invoice_data['recipient']['ico']}")
+    logging.info(f"\nPŘÍJEMCE: {invoice_data['recipient']['name']}")
+    logging.info(f"Adresa: {invoice_data['recipient']['address']}")
+    logging.info(f"IČO: {invoice_data['recipient']['ico']}")
     
-    print("-" * 50)
-    print(f"PROJEKT: {invoice_data['job']['project_name']}")
-    print(f"OBDOBÍ:  {invoice_data['job']['period']}")
-    print(f"ČAS:     {invoice_data['job']['total_hours']} h (zaokrouhleno)")
-    print(f"SAZBA:   {invoice_data['job']['hourly_rate']} {invoice_data['job']['currency']}/h")
-    print("-" * 50)
-    print(f"CELKEM K ÚHRADĚ: {invoice_data['job']['total_price']:.2f} {invoice_data['job']['currency']}")
-    print("="*50 + "\n")
+    logging.info("-" * 50)
+    logging.info(f"PROJEKT: {invoice_data['job']['project_name']}")
+    logging.info(f"OBDOBÍ:  {invoice_data['job']['period']}")
+    logging.info(f"ČAS:     {invoice_data['job']['total_hours']} h (zaokrouhleno)")
+    logging.info(f"SAZBA:   {invoice_data['job']['hourly_rate']} {invoice_data['job']['currency']}/h")
+    logging.info("-" * 50)
+    logging.info(f"CELKEM K ÚHRADĚ: {invoice_data['job']['total_price']:.2f} {invoice_data['job']['currency']}")
+    logging.info("="*50 + "\n")
 '''

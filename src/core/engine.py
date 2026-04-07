@@ -1,3 +1,4 @@
+import logging
 import time
 from datetime import datetime
 from typing import Optional
@@ -34,7 +35,7 @@ class ContextEngine:
     def start(self):
         """Spustí hlavní sledovací smyčku."""
         self.is_running = True
-        print(f"Engine ContextFlow byl spuštěn... interval je {self.settings.TICK_INTERVAL} sekund.")
+        logging.info(f"Engine ContextFlow byl spuštěn... interval je {self.settings.TICK_INTERVAL} sekund.")
         try:
             while self.is_running:
                 self._tick()
@@ -62,7 +63,7 @@ class ContextEngine:
         # 1. AFK KONTROLA
         if self.afk_watcher.watch():
             if self.current_activity:
-                print(f"[{now_str}] [AFK] Detekován klid. Resetuji sledování.")
+                logging.info(f"[{now_str}] [AFK] Detekován klid. Resetuji sledování.")
             self.current_activity = None
             self.timer = 0
             return
@@ -76,7 +77,7 @@ class ContextEngine:
         target_text = f"-> {match_dict['project']}" if match_dict else "-> MIMO INDEX"
         
         # TENTO PRINT BĚŽÍ VŽDY:
-        print(f"[{now_str}] [TICK] Sleduji: {win_text} {target_text}")
+        logging.info(f"[{now_str}] [TICK] Sleduji: {win_text} {target_text}")
 
         new_match = None
         if match_dict:
@@ -87,19 +88,19 @@ class ContextEngine:
         # 1. JSME V AKTUÁLNÍM PROJEKTU (Ideální stav)
         if self.current_activity and new_match and new_match.project_name == self.current_activity.project_name:
             if self.timer > 0:
-                print(f"[{now_str}] [BACK] Návrat k: {self.current_activity.project_name}")
+                logging.info(f"[{now_str}] [BACK] Návrat k: {self.current_activity.project_name}")
             
             self.timer = 0 
             self.pending_activity = None
             self._write_to_db(self.current_activity, window)
             # Volitelný print pro potvrzení zápisu:
-            # print(f"[{now_str}] [OK] Prodloužen log pro {self.current_activity.project_name}")
+            # logging.info(f"[{now_str}] [OK] Prodloužen log pro {self.current_activity.project_name}")
             return
 
         # 2. JSME JINDE (Jiný projekt nebo mimo pracovní nástroje)
         if new_match != self.pending_activity:
             if self.pending_activity or new_match: # Logujeme jen reálné změny
-                print(f"[{now_str}] [INFO] Změna kandidáta. Resetuji časovač potvrzení.")
+                logging.info(f"[{now_str}] [INFO] Změna kandidáta. Resetuji časovač potvrzení.")
             self.timer = 0
             self.pending_activity = new_match
         
@@ -109,23 +110,23 @@ class ContextEngine:
         if self.timer < self.settings.REQUIRED_CONFIRMATIONS:
             if self.current_activity:
                 reason = "INSPIRACE" if new_match else "GRACE"
-                print(f"[{now_str}] [{reason}] {self.timer}/{self.settings.REQUIRED_CONFIRMATIONS} | Stále loguji: {self.current_activity.project_name}")
+                logging.info(f"[{now_str}] [{reason}] {self.timer}/{self.settings.REQUIRED_CONFIRMATIONS} | Stále loguji: {self.current_activity.project_name}")
                 
                 grace_window = WindowInfo(title="Grace Period", executable="Unknown", is_whitelisted=False)
                 self._write_to_db(self.current_activity, grace_window)
             else:
                 # Nemáme rozdělanou práci a nejsme v indexu
-                print(f"[{now_str}] [IDLE] Čekám na pracovní kontext... ({self.timer}/{self.settings.REQUIRED_CONFIRMATIONS})")
+                logging.info(f"[{now_str}] [IDLE] Čekám na pracovní kontext... ({self.timer}/{self.settings.REQUIRED_CONFIRMATIONS})")
         
         # B) LIMIT VYPRŠEL (Čistý řez)
         else:
             if self.pending_activity:
-                print(f"[{now_str}] [SWITCH] Přepínám na: {self.pending_activity.project_name}")
+                logging.info(f"[{now_str}] [SWITCH] Přepínám na: {self.pending_activity.project_name}")
                 self.current_activity = self.pending_activity
                 self._write_to_db(self.current_activity, window)
             else:
                 if self.current_activity:
-                    print(f"[{now_str}] [STOP] Limit vypršel. Tracking vypnut.")
+                    logging.info(f"[{now_str}] [STOP] Limit vypršel. Tracking vypnut.")
                 self.current_activity = None
             
             self.timer = 0
@@ -133,4 +134,4 @@ class ContextEngine:
 
     def stop(self):
         self.is_running = False
-        print("Engine se zastavuje...")
+        logging.info("Engine se zastavuje...")

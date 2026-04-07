@@ -1,3 +1,4 @@
+import logging
 import time
 from src.database.db_handler import DatabaseManager
 from src.core.indexer import IndexManager
@@ -20,20 +21,20 @@ def main():
     # 2. FILE WATCHER - Musíme ho vytvořit a SPUSTIT
     fw = FileWatcher(indexer)
     fw.start()  # <--- Tady začíná sledovat změny na disku
-    print(f"Sleduji změny ve složce: {settings.MAIN_FOLDER}")
+    logging.info(f"Sleduji změny ve složce: {settings.MAIN_FOLDER}")
 
     # 3. ENGINE
     engine = ContextEngine(watcher, indexer, db, afk_watcher=afk, settings=settings)
     
     try:
-        print("Aplikace běží. Pro ukončení stiskni Ctrl+C.")
+        logging.info("Aplikace běží. Pro ukončení stiskni Ctrl+C.")
         engine.start()
     except KeyboardInterrupt:
-        print("\nUkončování...")
+        logging.info("\nUkončování...")
     finally:
         # Důležité: Vždy musíme zastavit file watcher, jinak proces zůstane viset
         fw.stop()
-        print("FileWatcher zastaven. Nashledanou!")
+        logging.info("FileWatcher zastaven. Nashledanou!")
 
 if __name__ == "__main__":
     main()

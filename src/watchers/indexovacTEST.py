@@ -38,7 +38,7 @@ class IndexManager:
             self.index = new_index
             return True
         except Exception as e:
-            print(f"Chyba při indexaci: {e}")
+            logging.info(f"Chyba při indexaci: {e}")
             return False
 
     def get_project_keys(self):
@@ -51,6 +51,6 @@ if __name__ == "__main__":
     # Kde je struktura: C:/MojePrace/AdvokatniKancelar/Smlouvy_2024
     manager = IndexManager("C:/Users/donth/VSE/BAKALARKA/MAIN")
     if manager.build_index():
-        print("Index úspěšně vytvořen:")
+        logging.info("Index úspěšně vytvořen:")
         for proj, info in manager.index.items():
-            print(f"Projekt: {proj} | Klient: {info['client']}")
+            logging.info(f"Projekt: {proj} | Klient: {info['client']}")

@@ -1,3 +1,5 @@
+import logging
+
 from fpdf import FPDF
 import os
 
@@ -73,6 +75,6 @@ class InvoiceGenerator:
         self.pdf.cell(30, 10, f"{self.data['grand_total']:.2f} {self.data['currency']}", align='R', new_x="LMARGIN", new_y="NEXT")
         # Export
         self.pdf.output(output_path)
-        print(f"✓ PDF Faktura vytvořena: {output_path}")
+        logging.info(f"✓ PDF Faktura vytvořena: {output_path}")
 
         # TODO: Upravit to pdf at to vypada profesionalne, zatim jen zaklad

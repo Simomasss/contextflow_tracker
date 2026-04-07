@@ -1,6 +1,8 @@
 import customtkinter as ctk
 from tkinter import messagebox
 
+from src.utils.uninstaller import run_contextflow_uninstaller
+
 class SettingsFrame(ctk.CTkFrame):
     def __init__(self, master, settings, **kwargs):
         super().__init__(master, **kwargs)
@@ -38,6 +40,16 @@ class SettingsFrame(ctk.CTkFrame):
             height=40
         )
         self.save_btn.pack(pady=20)
+
+        # Tlačítko odinstalace (dáme ho dospod)
+        self.uninstall_btn = ctk.CTkButton(
+            self, 
+            text="ODINSTALOVAT APLIKACI", 
+            fg_color="#721c24", # Tmavě červená (nebezpečí)
+            hover_color="#a71d2a",
+            command=self.confirm_uninstall
+        )
+        self.uninstall_btn.pack(pady=(10), side="bottom")
 
     def _add_section_header(self, text):
         """Pomocná metoda pro vizuální oddělení sekcí."""
@@ -90,6 +102,26 @@ class SettingsFrame(ctk.CTkFrame):
         except Exception as e:
             messagebox.showerror("Chyba", f"Nepodařilo se uložit nastavení: {e}")
 
+    def confirm_uninstall(self):
+        # Dvojité potvrzení, aby se tester neuklikl
+        msg = (
+            "Opravdu chcete ContextFlow odinstalovat?\n\n"
+            "• Aplikace se smaže (EXE)\n"
+            "• Nastavení se vymaže\n"
+            "• Automatické spouštění se zruší\n\n"
+            "Poznámka:\nDatabáze a logy zůstanou zachovány pro účely analýzy.\n"
+            "Po odinstalaci pěkně prosím o poslání databáze a logů\n"
+            "Pokud máte i nějakou zpětnou vazbu, budu rád, když se o ni podělíte!\n\n"
+            "Děkuji moc za testování a pomoc s vývojem! 🙏"
+        )
+        
+        answer = messagebox.askyesno("Potvrdit odinstalaci", msg)
+        if answer:
+            # Zastavíme engine před smazáním (aby se uložil poslední log)
+            # Tady předpokládám, že máš přístup k launcheru přes controller/master
+            # Pokud ne, zavolej rovnou uninstaller, ale engine je lepší stopnout.
+            run_contextflow_uninstaller()
+
 
 '''
 import customtkinter as ctk
@@ -121,5 +153,5 @@ class SettingsFrame(ctk.CTkFrame):
         self.settings.MAIN_FOLDER = self.folder_entry.get()
         self.settings.PROTECTION_MINUTES = float(self.prot_entry.get())
         self.settings.save()
-        print("✓ Nastavení uloženo do settings.json")
+        logging.info("✓ Nastavení uloženo do settings.json")
 '''

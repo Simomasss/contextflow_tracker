@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -39,7 +40,7 @@ class IndexManager:
                     new_map[item.name.lower()] = project_info
 
         self.lookup_map = new_map
-        print(f"Index aktualizován: {len(self.lookup_map)} sledovaných položek.")
+        logging.info(f"Index aktualizován: {len(self.lookup_map)} sledovaných položek.")
 
     def match_title(self, window_title: str) -> Optional[dict]:
         title_lower = window_title.lower()

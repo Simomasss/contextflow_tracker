@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from dataclasses import dataclass, field, asdict
 import sys
@@ -28,7 +29,7 @@ class AppSettings:
         self.config_path = os.path.join(application_path, "settings.json")
         
         if not os.path.exists(self.config_path):
-            print(f"Vytvářím výchozí json soubor v: {self.config_path}")
+            logging.info(f"Vytvářím výchozí json soubor v: {self.config_path}")
             self.save()
         else:
             self.load()
@@ -42,9 +43,9 @@ class AppSettings:
                     for key, value in data.items():
                         if hasattr(self, key):
                             setattr(self, key, value)
-                # print(f"✓ Nastavení načteno ze souboru {path}")
+                # logging.info(f"✓ Nastavení načteno ze souboru {path}")
             except Exception as e:
-                print(f"⚠ Chyba při načítání settings.json: {e}")
+                logging.info(f"⚠ Chyba při načítání settings.json: {e}")
 
     def save(self, path="settings.json"):
         """Uloží aktuální nastavení do souboru (budeme potřebovat pro GUI)."""
