@@ -7,17 +7,19 @@ class ActivityAggregator:
     def __init__(self, db_manager):
         self.db = db_manager
 
-    def get_raw_logs(self, start_date: datetime, end_date: datetime):
+    def get_raw_logs(self, start_time: datetime, end_time: datetime):
         """Základní metoda pro získání logů v rozmezí s přednačtením projektů."""
         with self.db.Session() as session:
             stmt = (
                 select(ActivityLog)
-                .options(joinedload(ActivityLog.project)) # <-- TADY JE TA OPRAVA
-                .where(
-                    ActivityLog.start_time >= start_date,
-                    ActivityLog.end_time <= end_date
+                .options(
+                    joinedload(ActivityLog.project)   # 1. Načti projekt k logu
+                    .joinedload(Project.client)       # 2. Načti klienta k tomu projektu (řetězení!)
                 )
-                .order_by(ActivityLog.start_time)
+                .where(
+                    ActivityLog.start_time >= start_time,
+                    ActivityLog.end_time <= end_time
+                )
             )
             return session.execute(stmt).scalars().all()
 
@@ -67,6 +69,34 @@ class ActivityAggregator:
             
         return stats
     
+    def get_daily_stats_v2(self, target_date: date):
+        """Vrátí strukturovaná data: {Klient: {Projekt: sekundy}}"""
+        with self.db.Session() as session:
+            start_dt = datetime.combine(target_date, datetime.min.time())
+            end_dt = datetime.combine(target_date, datetime.max.time())
+            
+            # Tady také přidáme joinedload, abychom měli klienta k dispozici
+            stmt = (
+                select(ActivityLog)
+                .options(joinedload(ActivityLog.project).joinedload(Project.client))
+                .where(
+                    ActivityLog.start_time >= start_dt,
+                    ActivityLog.end_time <= end_dt
+                )
+            )
+            logs = session.execute(stmt).scalars().all()
+                        
+            stats = {}
+            for log in logs:
+                c_name = log.project.client.name
+                p_name = log.project.name
+                
+                if c_name not in stats: stats[c_name] = {}
+                if p_name not in stats[c_name]: stats[c_name][p_name] = 0
+                
+                stats[c_name][p_name] += (log.end_time - log.start_time).total_seconds()
+                
+            return stats
 
     def get_invoice_data(self, project_ids: list[int], start_date: date, end_date: date):
         with self.db.Session() as session:

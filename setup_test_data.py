@@ -5,6 +5,7 @@ from src.database.models import Base, BillingProfile, Client, Project, ActivityL
 from src.core.config import AppSettings
 from sqlalchemy import select
 
+# TED NEFUNUGJE KVULI PATH V PROJECT V MODELS
 def setup_mock_data():
     settings = AppSettings(
         TICK_INTERVAL=5,

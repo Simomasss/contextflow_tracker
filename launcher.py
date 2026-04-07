@@ -12,7 +12,7 @@ from src.core.indexer import IndexManager
 from src.watchers.window_watcher import WindowWatcher
 from src.watchers.afk_watcher import AFKWatcher
 from src.watchers.file_watcher import FileWatcher
-from src.core.engine import ContextEngine # Předpokládám, že jsi třídu Engine přejmenoval/přesunul
+from src.core.engine import ContextEngine
 from src.gui.app import ContextFlowGUI
 
 class ContextFlowLauncher:

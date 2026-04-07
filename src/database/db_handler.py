@@ -1,3 +1,4 @@
+import os
 from typing import Optional
 
 from sqlalchemy import create_engine, select
@@ -7,7 +8,7 @@ from datetime import datetime, timedelta
 from src.core.config import AppSettings
 from .models import Base, Client, Project, ActivityLog
 from sqlalchemy import event
-from ..core.config import AppSettings # Importujeme settings
+from ..core.config import AppSettings
 
 class DatabaseManager:
     def __init__(self,settings: AppSettings, db_url: str = "sqlite:///contextflow.db"):
@@ -86,3 +87,41 @@ class DatabaseManager:
         with self.Session() as session:
             stmt = select(ActivityLog.end_time).order_by(ActivityLog.id.desc()).limit(1)
             return session.execute(stmt).scalar_one_or_none()
+        
+# Pro editaci logů z GUI
+    def update_activity_log(self, log_id, new_start, new_end):
+        """Aktualizuje svůj záznam v DB."""
+        with self.Session() as session:
+            log = session.get(ActivityLog, log_id)
+            if log:
+                log.start_time = new_start
+                log.end_time = new_end
+                session.commit()
+                return True
+            return False
+
+    def delete_activity_log(self, log_id):
+        """Vymaže svůj záznam v DB."""
+        with self.Session() as session:
+            log = session.get(ActivityLog, log_id)
+            if log:
+                session.delete(log)
+                session.commit()
+                return True
+            return False
+    
+    # Základ pro nový indexer
+    def rename_project_path(self, old_path, new_path):
+        with self.Session() as session:
+            # 1. Najdeme projekt podle staré cesty
+            project = session.execute(
+                select(Project).where(Project.path == old_path)
+            ).scalar_one_or_none()
+            
+            if project:
+                # 2. Aktualizujeme cestu i jméno (pokud jméno odvozuješ ze složky)
+                project.path = new_path
+                project.name = os.path.basename(new_path)
+                session.commit()
+                return True
+        return False
