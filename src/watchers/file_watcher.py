@@ -1,3 +1,5 @@
+import os
+
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from ..core.indexer import IndexManager
@@ -20,7 +22,12 @@ class FileWatcher:
         self.handler = IndexUpdateHandler(self.indexer)
 
     def start(self):
-        self.observer.schedule(self.handler, str(self.indexer.root_path), recursive=True)
+        path_to_watch = str(self.indexer.root_path)
+        if not os.path.exists(path_to_watch):
+            print(f"⚠️ VAROVÁNÍ: Složka {path_to_watch} neexistuje. FileWatcher se nespustí.")
+            return
+
+        self.observer.schedule(self.handler, path_to_watch, recursive=True)
         self.observer.start()
 
     def stop(self):

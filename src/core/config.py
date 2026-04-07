@@ -1,6 +1,7 @@
 import json
 import os
 from dataclasses import dataclass, field, asdict
+import sys
 from typing import List
 
 @dataclass
@@ -15,15 +16,21 @@ class AppSettings:
 
     def __post_init__(self):
         """Tato metoda se spustí hned po vytvoření objektu AppSettings()."""
-        self.config_path = "settings.json"
+        # Najde složku, kde leží spuštěný .exe (nebo .py skript)
+        if getattr(sys, 'frozen', False):
+            # Režim EXE - složka u .exe
+            application_path = os.path.dirname(sys.executable)
+        else:
+            # Režim skript - skočíme z src/core o dvě úrovně výš do kořene projektu
+            current_dir = os.path.dirname(os.path.abspath(__file__)) # src/core
+            application_path = os.path.abspath(os.path.join(current_dir, "..", ".."))
+
+        self.config_path = os.path.join(application_path, "settings.json")
         
-        # CHYTRÁ LOGIKA:
         if not os.path.exists(self.config_path):
-            # Pokud JSON neexistuje, vytvoříme ho z těchto výchozích hodnot
-            print(f"首次 spuštění: Vytvářím výchozí {self.config_path}")
+            print(f"Vytvářím výchozí json soubor v: {self.config_path}")
             self.save()
         else:
-            # Pokud existuje, načteme ho
             self.load()
 
     def load(self, path="settings.json"):

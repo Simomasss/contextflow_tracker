@@ -8,7 +8,7 @@ class IndexManager:
         self.lookup_map: Dict[str, dict] = {}
         self.reindex()
 
-    def reindex(self):
+    def reindex(self): # NEWINDEX
         """Projde rekurzivně vše pod MAIN a namapuje to na klienty/projekty."""
         if not self.root_path.exists():
             return

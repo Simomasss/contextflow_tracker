@@ -110,7 +110,8 @@ class DatabaseManager:
                 return True
             return False
     
-    # Základ pro nový indexer
+    # Základ pro nový indexer NEWINDEX
+'''
     def rename_project_path(self, old_path, new_path):
         with self.Session() as session:
             # 1. Najdeme projekt podle staré cesty
@@ -125,3 +126,43 @@ class DatabaseManager:
                 session.commit()
                 return True
         return False
+    
+    def sync_project(self, client_name: str, project_name: str, project_path: str):
+        """
+        Zajistí, že klient a projekt existují. 
+        Identifikace projektu probíhá primárně přes PATH.
+        """
+        with self.Session() as session:
+            # 1. Zajistíme klienta
+            client = session.execute(
+                select(Client).where(Client.name == client_name)
+            ).scalar_one_or_none()
+            
+            if not client:
+                client = Client(name=client_name)
+                session.add(client)
+                session.flush()
+
+            # 2. Zajistíme projekt podle PATH
+            project = session.execute(
+                select(Project).where(Project.path == project_path)
+            ).scalar_one_or_none()
+
+            if not project:
+                # Nový projekt
+                project = Project(name=project_name, path=project_path, client_id=client.id)
+                session.add(project)
+            else:
+                # Existující projekt - aktualizujeme jméno (kdyby se složka přejmenovala)
+                project.name = project_name
+                # A ujistíme se, že má správného klienta (kdyby se složka přesunula k jinému)
+                project.client_id = client.id
+
+            session.commit()
+            # Vrátíme ID a jména, aby si Indexer mohl postavit mapu v paměti
+            return {
+                "id": project.id,
+                "name": project.name,
+                "client": client.name
+            }
+'''

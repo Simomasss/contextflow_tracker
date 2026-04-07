@@ -24,7 +24,7 @@ class Project(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     client_id: Mapped[int] = mapped_column(ForeignKey('clients.id'))
     name: Mapped[str] = mapped_column(String, nullable=False)
-    path: Mapped[str] = mapped_column(String, unique=True, nullable=False) # Unikátní cesta pro identifikaci
+    #path: Mapped[str] = mapped_column(String, unique=True, nullable=False) # Unikátní cesta pro identifikaci NEWINDEX
     hourly_rate: Mapped[Optional[float]] = mapped_column(Float)
     currency: Mapped[str] = mapped_column(String, default="CZK")
 
