@@ -7,19 +7,25 @@ from ..database.db_handler import DatabaseManager
 from ..core.aggregator import ActivityAggregator
 
 class ContextFlowGUI(ctk.CTk):
-    def __init__(self):
+    def __init__(self, launcher):
         super().__init__()
+
+        self.launcher = launcher
+        self.settings = launcher.settings 
+        self.db = launcher.db
+        self.aggregator = ActivityAggregator(self.db)
 
         # --- 1. NASTAVENÍ A DATABÁZE --- TODO: meli bychom nacitat z configu
         # Tady definujeme stejná nastavení jako v testu
-        self.settings = AppSettings()
+        #self.settings = AppSettings()
         
         # Připojíme se k databázi
-        self.db = DatabaseManager(settings=self.settings, db_url="sqlite:///contextflow.db")
-        self.aggregator = ActivityAggregator(self.db)
+        #self.db = DatabaseManager(settings=self.settings, db_url="sqlite:///contextflow.db")
+        #self.aggregator = ActivityAggregator(self.db)
+        
 
         # --- 2. ZÁKLADNÍ OKNO ---
-        self.title("ContextFlow v1.0")
+        self.title("ContextFlow") # TODO: pridat verzi
         self.geometry("1100x700")
 
         # Konfigurace gridu
@@ -62,7 +68,7 @@ class ContextFlowGUI(ctk.CTk):
 
     def show_settings(self):
         self.clear_main_view()
-        self.settings_page = SettingsFrame(self.main_view, self.settings, fg_color="transparent")
+        self.settings_page = SettingsFrame(self.main_view, self.settings, self.launcher, fg_color="transparent")
         self.settings_page.pack(fill="both", expand=True)
 
     def clear_main_view(self):

@@ -1,4 +1,5 @@
 import threading
+import time
 from tkinter import filedialog, messagebox
 import tkinter
 import winreg
@@ -33,6 +34,7 @@ class ContextFlowLauncher:
         ctk.set_default_color_theme("blue")
 
         self.settings = AppSettings()
+        self.restart_lock = threading.Lock() # Zámek proti vícenásobnému restartu
         
         # 1. KONTROLA CESTY HNED NA STARTU
         if not self.settings.MAIN_FOLDER or not os.path.exists(self.settings.MAIN_FOLDER):
@@ -59,8 +61,9 @@ class ContextFlowLauncher:
 
         # 2. VYTVOŘÍME GUI HNED (ale zatím ho nezobrazíme)
         self.icon_path = resource_path("src/gui/assets/icon.ico")
-        self.gui = ContextFlowGUI()
-        self.gui.withdraw()  # Skryje okno hned po vytvoření
+        self.gui = ContextFlowGUI(launcher=self)
+        self.gui.withdraw() # Skryje okno
+
         # Ikona vlevo nahoře v okně
         try:
             self.gui.iconbitmap(self.icon_path)
@@ -174,6 +177,56 @@ class ContextFlowLauncher:
                 logging.info("✓ Aplikace přidána do po spuštění.")
             except Exception as e:
                 logging.info(f"Nepodařilo se zapsat do registru: {e}")
+
+    def apply_settings(self):
+        """Tato metoda se volá z GUI. Jen spustí vlákno a hned vrátí řízení GUI."""
+        if self.restart_lock.locked():
+            logging.warning("Restart již probíhá, prosím čekejte...")
+            return
+            
+        logging.info("Spouštím bezpečný reaktivní restart...")
+        threading.Thread(target=self._do_apply_settings_background, daemon=True).start()
+
+    def _do_apply_settings_background(self):
+        with self.restart_lock: # Zamkneme proces restartu
+            try:
+                # 1. Zastavení starých služeb
+                if hasattr(self, 'engine'):
+                    self.engine.stop()
+                if hasattr(self, 'fw'):
+                    self.fw.stop()
+                
+                # KRITICKÝ KROK: Počkáme chvíli, než stará vlákna doopravdy skončí
+                # Tím zmizí ti "duchové" a nepravidelné ticky
+                time.sleep(1)
+
+                # 2. Reinicializace komponent
+                # Vytvoříme nové instance s čerstvými daty ze settings
+                self.watcher = WindowWatcher(self.settings.WHITELIST)
+                self.indexer = IndexManager(self.settings.MAIN_FOLDER)
+                self.fw = FileWatcher(self.indexer)
+                self.afk.threshold = self.settings.AFK_THRESHOLD
+                
+                self.engine = ContextEngine(
+                    self.watcher, 
+                    self.indexer, 
+                    self.db, 
+                    afk_watcher=self.afk, 
+                    settings=self.settings
+                )
+
+                # 3. Start nových služeb
+                self.fw.start()
+                self.engine.start()
+                
+                logging.info("--- Engine úspěšně restartován (všechny staré procesy ukončeny) ---")
+                
+                # 4. Úspěšná zpráva do GUI
+                self.gui.after(0, lambda: messagebox.showinfo("Hotovo", "Nastavení bylo aplikováno.\nEngine běží s novým whitelistu."))
+                
+            except Exception as e:
+                logging.error(f"Chyba při reaktivním restartu: {e}", exc_info=True)
+                self.gui.after(0, lambda: messagebox.showerror("Chyba", f"Restart selhal: {e}"))
 
 if __name__ == "__main__":
     setup_logging() # Teď už všechno, co logujeme, půjde do souboru

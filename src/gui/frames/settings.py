@@ -4,9 +4,10 @@ from tkinter import messagebox
 from src.utils.uninstaller import run_contextflow_uninstaller
 
 class SettingsFrame(ctk.CTkFrame):
-    def __init__(self, master, settings, **kwargs):
+    def __init__(self, master, settings, launcher, **kwargs):
         super().__init__(master, **kwargs)
         self.settings = settings
+        self.launcher = launcher
         self.entries = {} # Slovník pro snadný přístup k polím
 
         # Nadpis
@@ -94,8 +95,18 @@ class SettingsFrame(ctk.CTkFrame):
 
             # 3. Uložení do souboru
             self.settings.save()
+            messagebox.showinfo("Úspěch", "Nastavení uloženo. Pro propsání změn je nutné restartovat.\nV liště zvolte 'Ukončit' a pak znova zapněte ContextFlow.exe")
+
             
-            messagebox.showinfo("Úspěch", "Nastavení bylo úspěšně uloženo do settings.json.\nZměny se projeví po restartu aplikace.")
+            # 4. Místo přímého volání to naplánujeme
+            # Tím dovolíme GUI dokončit tuhle funkci a nezůstat viset
+            #if self.launcher:
+                # Zavolá apply_settings za 100 milisekund
+            #    self.after(100, self.launcher.apply_settings)
+                
+            #messagebox.showinfo("Úspěch", "Nastavení uloženo. Engine se restartuje...")
+            
+            #messagebox.showinfo("Hotovo", "Nastavení aplikováno reaktivně!")
             
         except ValueError as e:
             messagebox.showerror("Chyba", "Zkontrolujte číselné hodnoty (Interval, AFK, Ochranná lhůta musí být čísla).")

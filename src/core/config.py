@@ -9,7 +9,7 @@ from typing import List
 class AppSettings:
     # --- VÝCHOZÍ HODNOTY (Defaults) ---
     MAIN_FOLDER: str = "C:/Users/Doplnte/vasi/pracovni/slozku"
-    WHITELIST: List[str] = field(default_factory=lambda: ["Code.exe", "WINWORD.EXE", "Excel.exe", "chrome.exe"])
+    WHITELIST: List[str] = field(default_factory=lambda: ["Code.exe", "WINWORD.EXE", "Excel.exe", "chrome.exe", "msedge.exe", "powerpnt.exe", "rstudio.exe"])
     PROTECTION_MINUTES: float = 1.0
     TICK_INTERVAL: int = 5
     AFK_THRESHOLD: int = 300
