@@ -34,7 +34,10 @@ class ContextEngine:
 #TODO: pro pripad, kdyz force ukoncovani
     def start(self):
         """Spustí hlavní sledovací smyčku."""
-        self.is_running = True
+        self.is_running = True 
+        # PŘEJÍT NA EVENT-DRIVEN ARCHITEKTURU BY BYLO IDEÁLNÍ, ALE PRO ZATÍM NECHÁME TICKOVACÍ SMYČKU
+        # MOŽNÁ BY ŠLO PŘIDAT I ASYNCHRONNÍ PODPORU PRO FILE WATCHER, ABYCHOM MĚLI REAKTIVNÍ ZMĚNY NA DISKU, ALE PRO ZATÍM TO NECHÁME TAKTO JAK JE
+        # TICKOVACÍ SMYČKA JE SNADNÁ NA IMPLEMENTACI A PRO VELKOU VĚTŠINU SCÉNÁŘŮ BUDE DOSTATEČNĚ RYCHLÁ (5 SEKUNDOVÝ INTERVAL)
         logging.info(f"Engine ContextFlow byl spuštěn... interval je {self.settings.TICK_INTERVAL} sekund.")
         try:
             while self.is_running:
@@ -59,6 +62,8 @@ class ContextEngine:
 
     def _tick(self):
         now_str = datetime.now().strftime('%H:%M:%S')
+        # Pro ukládáni settings za běhu by možná šlo přidat do configu nějaký watcher na detekci změn.
+        # Anebo přidat ke každému ticku načítání nastavení z configu, ale to by mohlo být docela náročné.
         
         # 1. AFK KONTROLA
         if self.afk_watcher.watch():

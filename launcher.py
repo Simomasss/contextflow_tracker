@@ -47,18 +47,7 @@ class ContextFlowLauncher:
         self.fw = FileWatcher(self.indexer)
         self.engine = ContextEngine(self.watcher, self.indexer, self.db, afk_watcher=self.afk, settings=self.settings)
 
-        self.icon_path = resource_path("src/gui/assets/icon.ico")
-        try:
-            tray_img = Image.open(self.icon_path)
-        except Exception:
-            # Fallback na barevný čtverec, kdyby soubor chyběl
-            tray_img = Image.new('RGB', (64, 64), color=(31, 83, 141))
-
-        self.icon = pystray.Icon("ContextFlow", tray_img, "ContextFlow", menu=pystray.Menu(
-            pystray.MenuItem("Otevřít přehled", self.show_gui),
-            pystray.MenuItem("Ukončit", self.quit_app)
-        ))
-
+        
         # 2. VYTVOŘÍME GUI HNED (ale zatím ho nezobrazíme)
         self.icon_path = resource_path("src/gui/assets/icon.ico")
         self.gui = ContextFlowGUI(launcher=self)

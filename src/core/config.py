@@ -60,7 +60,7 @@ class AppSettings:
 
     @property
     def MAX_GAP_FOR_MERGE(self) -> int:
-        return int(self.PROTECTION_MINUTES * 60)
+        return int(self.PROTECTION_MINUTES * 60) + 10 # 10sekund jako buffer
 
 
 
