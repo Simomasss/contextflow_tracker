@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+import re
 from typing import Dict, Optional
 
 class IndexManager:
@@ -20,6 +21,79 @@ class IndexManager:
         self.reindex()
 
     def reindex(self):
+        if not self.root_path.exists(): return
+        new_map = {}
+        
+        for client_dir in self.root_path.iterdir():
+            # Ignorujeme skryté složky klientů (začínající tečkou)
+            if not client_dir.is_dir() or client_dir.name.startswith('.'):
+                continue
+            
+            for project_dir in client_dir.iterdir():
+                # KLÍČOVÝ FIX: Ignorujeme skryté složky projektů (.git, .venv) hned tady
+                if not project_dir.is_dir() or project_dir.name.startswith('.') or project_dir.name in self.IGNORED_DIR_NAMES:
+                    continue
+                
+                p_info = {"client": client_dir.name, "project": project_dir.name}
+                p_name_key = project_dir.name.lower()
+                
+                if p_name_key not in new_map: new_map[p_name_key] = []
+                new_map[p_name_key].append(p_info)
+                
+                for item in project_dir.rglob("*"):
+                    # Filtry pro soubory uvnitř projektů
+                    if any(part.startswith('.') or part in self.IGNORED_DIR_NAMES for part in item.parts):
+                        continue
+                    
+                    if item.is_file():
+                        f_key = item.name.lower()
+                        if len(f_key) < 4: continue
+                        
+                        if f_key not in new_map: new_map[f_key] = []
+                        if p_info not in new_map[f_key]:
+                            new_map[f_key].append(p_info)
+
+        self.lookup_map = new_map
+        logging.info(f"Index aktualizován: {len(self.lookup_map)} unikátních klíčů.")
+
+    def match_title(self, window_title: str, current_project = None) -> Optional[dict]:
+        if not window_title: return None
+        title_lower = window_title.lower()
+        
+        best_match = None
+        max_key_len = 0
+        potential_projects = []
+
+        # Najdeme všechny shody (řešíme Ružu přes Regex)
+        for key, projects in self.lookup_map.items():
+            pattern = r"\b" + re.escape(key) + r"\b"
+            if re.search(pattern, title_lower):
+                if len(key) > max_key_len:
+                    max_key_len = len(key)
+                    potential_projects = projects
+
+        if not potential_projects:
+            return None
+
+        # TIE-BREAKER (Rozhodování u stejnojmenných souborů)
+        if len(potential_projects) > 1:
+            # 1. Je jeden z nich ten, co zrovna děláme?
+            if current_project:
+                for p in potential_projects:
+                    if p['project'] == current_project:
+                        return p
+            
+            # 2. Je název projektu v titulu okna?
+            for p in potential_projects:
+                if p['project'].lower() in title_lower:
+                    return p
+
+        # 3. Pokud nevíme, nebo je jen jeden, vrátíme první možnost
+        return potential_projects[0]
+    
+
+'''
+def reindex(self):
         """Projde rekurzivně vše pod MAIN a namapuje to na klienty/projekty. Ignoruje položky v IGNORED_DIR_NAMES a všechny skryté položky. (začínající '.')"""
         if not self.root_path.exists(): return
         new_map = {}
@@ -30,39 +104,28 @@ class IndexManager:
             for project_dir in client_dir.iterdir():
                 if not project_dir.is_dir(): continue
                 
-                project_info = {"client": client_dir.name,
-                                "project": project_dir.name
-                                }
+                p_info = {"client": client_dir.name, "project": project_dir.name}
+                p_name_key = project_dir.name.lower()
                 
-                new_map[project_dir.name.lower()] = project_info
+                # 1. Přidáme název projektu (vždy unikátní v rámci klienta)
+                if p_name_key not in new_map: new_map[p_name_key] = []
+                new_map[p_name_key].append(p_info)
                 
+                # 2. Přidáme soubory
                 for item in project_dir.rglob("*"):
-                    # FILTR
-                    path_parts = item.parts
-                    if any(part.startswith('.') or part in self.IGNORED_DIR_NAMES for part in path_parts):
+                    # Ignorujeme balast (to už máš)
+                    if any(part.startswith('.') or part in self.IGNORED_DIR_NAMES for part in item.parts):
                         continue
                     
-                    # Indexujeme pouze soubory (složky už máme pokryté názvem projektu)
                     if item.is_file():
-                        new_map[item.name.lower()] = project_info
+                        f_key = item.name.lower()
+                        if len(f_key) < 4: continue # Ochrana proti "1.pdf", "a.py"
+                        
+                        if f_key not in new_map: new_map[f_key] = []
+                        # Zamezíme duplicitám v seznamu pro jeden soubor
+                        if p_info not in new_map[f_key]:
+                            new_map[f_key].append(p_info)
 
         self.lookup_map = new_map
-        logging.info(f"Index vyčištěn a aktualizován: {len(self.lookup_map)} relevantních položek.")
-
-    def match_title(self, window_title: str) -> Optional[dict]:
-        title_lower = window_title.lower()
-        
-        best_match = None
-        max_key_length = 0
-
-        # Projdeme všechny klíče v naší mapě
-        for key, info in self.lookup_map.items():
-            # Pokud klíč (název souboru/složky) najdeme v titulku okna
-            if key in title_lower:
-                # A pokud je tento klíč DELŠÍ než ten, co jsme našli předtím
-                if len(key) > max_key_length:
-                    max_key_length = len(key)
-                    best_match = info
-        
-        # Vrátíme tu nejdelší (nejpřesnější) shodu
-        return best_match
+        logging.info(f"Index aktualizován: {len(self.lookup_map)} unikátních klíčů.")
+'''

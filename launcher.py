@@ -107,6 +107,7 @@ class ContextFlowLauncher:
         # D. GUI MAINLOOP V HLAVNÍM VLÁKNĚ
         # Tohle musí být poslední řádek, který "drží" aplikaci naživu
         logging.info("✓ ContextFlow běží. GUI v hlavním vlákně, Tray ve vedlejším.")
+        logging.info(self.indexer.lookup_map) # Pro debugování indexu při startu
         self.gui.mainloop()
 
     def quit_app(self, icon=None, item=None):

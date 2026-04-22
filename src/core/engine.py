@@ -82,11 +82,14 @@ class ContextEngine:
 
         # --- B. VSTUP A MATCHING ---
         window = self.watcher.watch()
-        match_dict = self.indexer.match_title(window.title) if (window and window.is_whitelisted) else None
+        curr_name = self.current_activity.project_name if self.current_activity else None
+        match_dict = self.indexer.match_title(window.title, curr_name) if (window and window.is_whitelisted) else None
         
         new_match = None
         if match_dict:
             new_match = ContextMatch(client_name=match_dict['client'], project_name=match_dict['project'])
+            logging.info(f"[MATCH] '{window.title}'") # type: ignore
+            # ({window.executable}) -> [KLIENT]: {new_match.client_name} [PROJEKT]: {new_match.project_name}
 
         # --- C. NÁVRAT DOMŮ (Záchranná brzda) ---
         # Pokud jsme v rozdělané práci, okamžitě resetujeme timer a jedeme dál
