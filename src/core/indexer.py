@@ -56,40 +56,40 @@ class IndexManager:
         self.lookup_map = new_map
         logging.info(f"Index aktualizován: {len(self.lookup_map)} unikátních klíčů.")
 
-    def match_title(self, window_title: str, current_project = None) -> Optional[dict]:
-        if not window_title: return None
+    def match_title(self, window_title: str) -> Optional[dict]:
+        if not window_title: 
+            return None
+            
         title_lower = window_title.lower()
-        
-        best_match = None
+        # Explicitně řekneme, že jde o seznam slovníků
+        best_match_projects: list[dict] = []
         max_key_len = 0
-        potential_projects = []
 
-        # Najdeme všechny shody (řešíme Ružu přes Regex)
+        # 1. Najdeme kandidáty (Regex + délka)
         for key, projects in self.lookup_map.items():
+            # Regex pro hranice slov (řeší 'Ružu')
             pattern = r"\b" + re.escape(key) + r"\b"
             if re.search(pattern, title_lower):
                 if len(key) > max_key_len:
                     max_key_len = len(key)
-                    potential_projects = projects
+                    # FIX: Vytvoříme NOVÝ seznam, aby extend neházal chybu
+                    # a abychom si neupravili lookup_map
+                    best_match_projects = list(projects) 
+                elif len(key) == max_key_len and max_key_len > 0:
+                    # Tady už extend funguje, protože best_match_projects je zaručeně list
+                    best_match_projects.extend(projects)
 
-        if not potential_projects:
+        if not best_match_projects:
             return None
 
-        # TIE-BREAKER (Rozhodování u stejnojmenných souborů)
-        if len(potential_projects) > 1:
-            # 1. Je jeden z nich ten, co zrovna děláme?
-            if current_project:
-                for p in potential_projects:
-                    if p['project'] == current_project:
-                        return p
-            
-            # 2. Je název projektu v titulu okna?
-            for p in potential_projects:
+        # 2. TIE-BREAKER: Pokud je kandidátů víc, zkusíme najít název projektu v titulku
+        if len(best_match_projects) > 1:
+            for p in best_match_projects:
                 if p['project'].lower() in title_lower:
                     return p
 
-        # 3. Pokud nevíme, nebo je jen jeden, vrátíme první možnost
-        return potential_projects[0]
+        # 3. Vrátíme první nalezený (vždy to bude dict ze seznamu)
+        return best_match_projects[0]
     
 
 '''

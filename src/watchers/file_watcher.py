@@ -15,7 +15,17 @@ class IndexUpdateHandler(FileSystemEventHandler):
         self.timer = None
 
     def on_any_event(self, event):
-        path = Path(event.src_path) # type: ignore
+        # 1. Získáme cestu a vynutíme, aby to byl string
+        raw_path = event.src_path
+        
+        # Type Guard: Pokud to nejsou čistá písmenka, převedeme je na ně.
+        # Tímto zmizí error "Argument of type str | bytearray..."
+        if isinstance(raw_path, (bytes, bytearray)):
+            clean_path = raw_path.decode('utf-8', errors='replace')
+        else:
+            clean_path = str(raw_path)
+
+        path = Path(clean_path)
         
         # 1. FILTR: Totální ignorace čehokoliv, co má v názvu "contextflow"
         # Tím odstřihneme logy, DB i celou složku trackeru
