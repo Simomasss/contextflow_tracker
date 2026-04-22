@@ -61,82 +61,118 @@ class ContextEngine:
         )
 
     def _tick(self):
+        """
+        Hlavní logika, heartbeat engine, který přiřazuje kontext a zapisuje do DB. Je volán každých TICK_INTERVAL sekund.
+        Logika: 1) Kontrola AFK, 2) Získání aktuálního okna a pokus o match, 3) Rozhodnutí, jestli jsme v IDLE nebo EXIT režimu, 4) Inkrementace timeru, 5) Pokud timer překročí limit, potvrdíme změnu kontextu.
+        """
         now_str = datetime.now().strftime('%H:%M:%S')
-        # Pro ukládáni settings za běhu by možná šlo přidat do configu nějaký watcher na detekci změn.
-        # Anebo přidat ke každému ticku načítání nastavení z configu, ale to by mohlo být docela náročné.
         
-        # 1. AFK KONTROLA
+        # --- A. AFK KONTROLA ---
         if self.afk_watcher.watch():
-            if self.current_activity:
-                logging.info(f"[{now_str}] [AFK] Detekován klid. Resetuji sledování.")
+            # Logujeme jen pokud jsme v tu chvíli něco dělali (měli jsme rozjetý timer nebo aktivitu)
+            if self.current_activity or self.timer > 0:
+                status = f"relaci {self.current_activity.project_name}" if self.current_activity else "čekání na potvrzení"
+                logging.info(f"[{now_str}] [AFK] Detekován klid. Ruším {status}.")
+            
+            # Reset všeho
             self.current_activity = None
             self.timer = 0
+            self.pending_activity = None
             return
 
-        # --- VSTUP (Co Engine vidí) ---
+        # --- B. VSTUP A MATCHING ---
         window = self.watcher.watch()
         match_dict = self.indexer.match_title(window.title) if (window and window.is_whitelisted) else None
         
-        # Pomocné texty pro hezký print
-        win_text = f"'{window.title[:40]}...'" if window else "ŽÁDNÉ OKNO"
-        target_text = f"-> {match_dict['project']}" if match_dict else "-> MIMO INDEX"
-        
-        # TENTO PRINT BĚŽÍ VŽDY:
-        logging.info(f"[{now_str}] [TICK] Sleduji: {win_text} {target_text}")
-
         new_match = None
         if match_dict:
             new_match = ContextMatch(client_name=match_dict['client'], project_name=match_dict['project'])
 
-        # --- AKCE (Co Engine udělá) ---
-
-        # 1. JSME V AKTUÁLNÍM PROJEKTU (Ideální stav)
+        # --- C. NÁVRAT DOMŮ (Záchranná brzda) ---
+        # Pokud jsme v rozdělané práci, okamžitě resetujeme timer a jedeme dál
         if self.current_activity and new_match and new_match.project_name == self.current_activity.project_name:
             if self.timer > 0:
-                logging.info(f"[{now_str}] [BACK] Návrat k: {self.current_activity.project_name}")
-            
+                logging.info(f"[{now_str}] [BACK] Návrat k hlavní práci: {self.current_activity.project_name}")
             self.timer = 0 
             self.pending_activity = None
             self._write_to_db(self.current_activity, window)
-            # Volitelný print pro potvrzení zápisu:
-            # logging.info(f"[{now_str}] [OK] Prodloužen log pro {self.current_activity.project_name}")
             return
 
-        # 2. JSME JINDE (Jiný projekt nebo mimo pracovní nástroje)
-        if new_match != self.pending_activity:
-            if self.pending_activity or new_match: # Logujeme jen reálné změny
-                logging.info(f"[{now_str}] [INFO] Změna kandidáta. Resetuji časovač potvrzení.")
-            self.timer = 0
-            self.pending_activity = new_match
-        
+        # --- D. LOGIKA RESETOVÁNÍ TIMERU (Klíčová změna) ---
+        if self.current_activity is None:
+            # Režim START: Pokud nic neděláme, každá změna okna musí resetovat timer, 
+            # abychom potvrdili, že na tom novém okně fakt sedíš (např. 1 minutu).
+            if new_match != self.pending_activity:
+                logging.info(f"[{now_str}] [IDLE] Změna cíle na: {new_match.project_name if new_match else 'NIC'}. Reset timeru.")
+                self.timer = 0
+                self.pending_activity = new_match
+        else:
+            # Režim EXIT: Tady je ta změna! Timer NERESETUJEME při změnách mezi okny,
+            # pokud jsme mimo hlavní projekt. Jen si poznamenáme, co je "pending", 
+            # aby SWITCH věděl, kam pak případně skočit.
+            if new_match != self.pending_activity:
+                logging.info(f"[{now_str}] [INFO] Změna aktivity během exitu: {self.pending_activity.project_name if self.pending_activity else 'GRACE'} -> {new_match.project_name if new_match else 'GRACE'}")
+                self.pending_activity = new_match
+                # TIMER TADY NESMÍ BÝT RESETOVÁN NA 0! 
+                # Chceme, aby celkový čas mimo hlavní práci prostě běžel dál.
+
+        # Inkrementace timeru (společná pro oba režimy)
         self.timer += 1
 
-        # A) OCHRANNÁ LHŮTA (Inspirace / Grace)
-        if self.timer < self.settings.REQUIRED_CONFIRMATIONS:
+        # --- E. URČENÍ LIMITU ---
+        limit = self.settings.CONFIRM_EXIT_TICKS if self.current_activity else self.settings.CONFIRM_START_TICKS
+
+        # --- F. ČEKACÍ LHŮTA (Vykreslování stavu) ---
+        if self.timer < limit:
             if self.current_activity:
+                # Jsme v režimu ochrany (Grace/Inspirace)
                 reason = "INSPIRACE" if new_match else "GRACE"
-                logging.info(f"[{now_str}] [{reason}] {self.timer}/{self.settings.REQUIRED_CONFIRMATIONS} | Stále loguji: {self.current_activity.project_name}")
+                logging.info(f"[{now_str}] [{reason}] {self.timer}/{limit} | Stále držím: {self.current_activity.project_name}")
                 
+                # Zápis do DB pod původním projektem (dokud nevyprší limit)
                 grace_window = WindowInfo(title="Grace Period", executable="Unknown", is_whitelisted=False)
                 self._write_to_db(self.current_activity, grace_window)
             else:
-                # Nemáme rozdělanou práci a nejsme v indexu
-                logging.info(f"[{now_str}] [IDLE] Čekám na pracovní kontext... ({self.timer}/{self.settings.REQUIRED_CONFIRMATIONS})")
+                # Čekáme na první potvrzení nové práce
+                target = self.pending_activity.project_name if self.pending_activity else "něco z indexu"
+                logging.info(f"[{now_str}] [IDLE] Čekám na potvrzení: {target} ({self.timer}/{limit})")
         
-        # B) LIMIT VYPRŠEL (Čistý řez)
+        # --- G. LIMIT VYPRŠEL (Akce) ---
         else:
             if self.pending_activity:
-                logging.info(f"[{now_str}] [SWITCH] Přepínám na: {self.pending_activity.project_name}")
+                logging.info(f"[{now_str}] [SWITCH] Potvrzeno. Přepínám na: {self.pending_activity.project_name}")
                 self.current_activity = self.pending_activity
                 self._write_to_db(self.current_activity, window)
             else:
                 if self.current_activity:
-                    logging.info(f"[{now_str}] [STOP] Limit vypršel. Tracking vypnut.")
+                    logging.info(f"[{now_str}] [STOP] Čas vypršel. Uživatel definitivně opustil kontext.")
                 self.current_activity = None
             
+            # Kompletní úklid po akci
             self.timer = 0
             self.pending_activity = None
 
     def stop(self):
         self.is_running = False
         logging.info("Engine se zastavuje...")
+
+'''
+        # A) NÁVRAT DO AKTIVNÍHO KONTEXTU
+        if self.current_activity and new_match and new_match.project_name == self.current_activity.project_name:
+            if self.timer > 0:
+                logging.info(f"[{now_str}] [BACK] Návrat k hlavní práci.")
+            self.timer = 0 # TADY resetujeme, protože jsme zpět "doma"
+            self.pending_activity = None
+            self._write_to_db(self.current_activity, window)
+            return
+
+        # B) JSME MIMO AKTIVNÍ KONTEXT (Nebo v IDLE)
+        # Tady se rozhodujeme, jestli budeme sledovat nového kandidáta
+        if new_match != self.pending_activity:
+            # Pokud se změní to, co děláme mimo hlavní práci, 
+            # updatujeme pending_activity, ale NERESETUJEME timer!
+            self.pending_activity = new_match
+            logging.info(f"[{now_str}] [INFO] Nový kandidát: {new_match.project_name if new_match else 'IDLE/Grace'}")
+
+        self.timer += 1
+'''

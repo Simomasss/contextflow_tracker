@@ -24,6 +24,7 @@ class SettingsFrame(ctk.CTkFrame):
 
         # --- SEKCE: LOGIKA SLEDOVÁNÍ ---
         self._add_section_header("Logika sledování")
+        self._create_setting_field("ENTRY_MINUTES", "Vstupní lhůta (min):", "Jak dlouho čekat, než potvrdíme vstup do kontextu.")
         self._create_setting_field("PROTECTION_MINUTES", "Ochranná lhůta (min):", "Jak dlouho čekat, než potvrdíme změnu kontextu.")
         self._create_setting_field("TICK_INTERVAL", "Interval kontroly (sec):", "Jak často engine kontroluje aktivní okno.")
         self._create_setting_field("AFK_THRESHOLD", "AFK limit (sec):", "Doba nečinnosti, po které se stopne měření.")
@@ -85,6 +86,7 @@ class SettingsFrame(ctk.CTkFrame):
             # 1. Načtení a konverze dat
             self.settings.MAIN_FOLDER = self.entries["MAIN_FOLDER"].get()
             self.settings.DB_URL = self.entries["DB_URL"].get()
+            self.settings.ENTRY_MINUTES = float(self.entries["ENTRY_MINUTES"].get())
             self.settings.PROTECTION_MINUTES = float(self.entries["PROTECTION_MINUTES"].get())
             self.settings.TICK_INTERVAL = int(self.entries["TICK_INTERVAL"].get())
             self.settings.AFK_THRESHOLD = int(self.entries["AFK_THRESHOLD"].get())

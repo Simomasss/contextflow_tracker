@@ -1,7 +1,8 @@
 {
     "MAIN_FOLDER": "C:/Zmen/Si/Cestu",
     "WHITELIST": ["Code.exe", "chrome.exe"],
-    "PROTECTION_MINUTES": 1.0,
+    "ENTRY_MINUTES": 1.0,
+    "PROTECTION_MINUTES": 5.0,
     "TICK_INTERVAL": 5,
     "AFK_THRESHOLD": 300,
     "DB_URL": "sqlite:///contextflow.db"

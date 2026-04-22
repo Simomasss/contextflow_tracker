@@ -10,9 +10,10 @@ class AppSettings:
     # --- VÝCHOZÍ HODNOTY (Defaults) ---
     MAIN_FOLDER: str = "C:/Users/Doplnte/vasi/pracovni/slozku"
     WHITELIST: List[str] = field(default_factory=lambda: ["Code.exe", "WINWORD.EXE", "Excel.exe", "chrome.exe", "msedge.exe", "powerpnt.exe", "rstudio.exe"])
-    PROTECTION_MINUTES: float = 1.0
+    ENTRY_MINUTES: float = 1.0
+    PROTECTION_MINUTES: float = 5.0
     TICK_INTERVAL: int = 5
-    AFK_THRESHOLD: int = 300
+    AFK_THRESHOLD: int = 360 # 6 minut nečinnosti = AFK, prodlouženo jako závěr z testování
     DB_URL: str = "sqlite:///contextflow.db"
 
     def __post_init__(self):
@@ -55,43 +56,16 @@ class AppSettings:
 
     # --- ODVOZENÉ PROMĚNNÉ (Properties zůstávají stejné) ---
     @property
-    def REQUIRED_CONFIRMATIONS(self) -> int:
-        return int((self.PROTECTION_MINUTES * 60) // self.TICK_INTERVAL)
+    def CONFIRM_START_TICKS(self) -> int:
+        ticks = (self.ENTRY_MINUTES * 60) / self.TICK_INTERVAL
+        return max(1, int(round(ticks)))
+
+    @property
+    def CONFIRM_EXIT_TICKS(self) -> int:
+        ticks = (self.PROTECTION_MINUTES * 60) / self.TICK_INTERVAL
+        return max(1, int(round(ticks)))
+    # Přidáno zaokrouhlení a zajištění, že to bude alespoň 1 tick, aby se předešlo dělení nulou nebo příliš krátkým intervalům.
 
     @property
     def MAX_GAP_FOR_MERGE(self) -> int:
         return int(self.PROTECTION_MINUTES * 60) + 10 # 10sekund jako buffer
-
-
-
-'''
-from dataclasses import dataclass, field
-from typing import List
-
-@dataclass
-class AppSettings:
-    # --- CESTY (To uživatel musí zadat) ---
-    MAIN_FOLDER: str = "C:/Users/donth/VSE/BAKALARKA/MAIN"
-    WHITELIST: List[str] = field(default_factory=lambda: ["Code.exe", "WINWORD.EXE", "Excel.exe"])
-
-    # --- HLAVNÍ NASTAVENÍ (Jediná věc, kterou uživatel ladí) ---
-    # Jak dlouho (v minutách) tolerujeme "odskoky" jinam, než to definitivně přepneme
-    PROTECTION_MINUTES: float = 3.0
-    
-    # Jak často aplikace kontroluje okna (sekundy) - technické nastavení
-    TICK_INTERVAL: int = 5
-    
-    # Za jak dlouho se stopne čas při nečinnosti (sekundy)
-    AFK_THRESHOLD: int = 300
-
-    # --- ODVOZENÉ PROMĚNNÉ (Matematika, kterou uživatel neřeší) ---
-    @property
-    def REQUIRED_CONFIRMATIONS(self) -> int:
-        """Kolik ticků musí proběhnout pro přepnutí kontextu."""
-        return int((self.PROTECTION_MINUTES * 60) // self.TICK_INTERVAL)
-
-    @property
-    def MAX_GAP_FOR_MERGE(self) -> int:
-        """Maximální mezera v sekundách, kterou v DB ještě spojíme do jednoho bloku."""
-        return int(self.PROTECTION_MINUTES * 60)
-'''

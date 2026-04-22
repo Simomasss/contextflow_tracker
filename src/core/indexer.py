@@ -3,44 +3,51 @@ from pathlib import Path
 from typing import Dict, Optional
 
 class IndexManager:
+    # TODO: Přidat do configu
+    IGNORED_DIR_NAMES = {
+        '.git', '.svn', '.hg',              # Verzování
+        'node_modules', 'venv', '.venv',    # Závislosti
+        '__pycache__', '.pytest_cache',     # Python balast
+        '.vscode', '.idea',                 # IDE
+        'dist', 'build', 'target',          # Build složky
+        'bin', 'obj', 'log'                        # Binární výstupy
+    }
+    
     def __init__(self, root_path: str):
         self.root_path = Path(root_path)
         # Mapa: "jmeno_souboru_nebo_slozky" -> (klient, projekt)
         self.lookup_map: Dict[str, dict] = {}
         self.reindex()
 
-    def reindex(self): # NEWINDEX
-        """Projde rekurzivně vše pod MAIN a namapuje to na klienty/projekty."""
-        if not self.root_path.exists():
-            return
-
+    def reindex(self):
+        """Projde rekurzivně vše pod MAIN a namapuje to na klienty/projekty. Ignoruje položky v IGNORED_DIR_NAMES a všechny skryté položky. (začínající '.')"""
+        if not self.root_path.exists(): return
         new_map = {}
         
-        # Projdeme složky klientů (úroveň 1)
         for client_dir in self.root_path.iterdir():
             if not client_dir.is_dir(): continue
             
-            # Projdeme složky projektů (úroveň 2)
             for project_dir in client_dir.iterdir():
                 if not project_dir.is_dir(): continue
                 
-                project_info = {
-                    "client": client_dir.name,
-                    "project": project_dir.name
-                }
+                project_info = {"client": client_dir.name,
+                                "project": project_dir.name
+                                }
                 
-                # 1. Přidáme název projektu do mapy
                 new_map[project_dir.name.lower()] = project_info
                 
-                # 2. Přidáme VŠECHNY soubory a podsložky v tomto projektu (úroveň 3+)
-                # rglob("*") najde vše rekurzivně hluboko uvnitř
                 for item in project_dir.rglob("*"):
-                    # Klíčem je název souboru/složky (např. "rozpocet.xlsx")
-                    # Hodnotou je pořád stejný klient a projekt
-                    new_map[item.name.lower()] = project_info
+                    # FILTR
+                    path_parts = item.parts
+                    if any(part.startswith('.') or part in self.IGNORED_DIR_NAMES for part in path_parts):
+                        continue
+                    
+                    # Indexujeme pouze soubory (složky už máme pokryté názvem projektu)
+                    if item.is_file():
+                        new_map[item.name.lower()] = project_info
 
         self.lookup_map = new_map
-        logging.info(f"Index aktualizován: {len(self.lookup_map)} sledovaných položek.")
+        logging.info(f"Index vyčištěn a aktualizován: {len(self.lookup_map)} relevantních položek.")
 
     def match_title(self, window_title: str) -> Optional[dict]:
         title_lower = window_title.lower()
@@ -59,17 +66,3 @@ class IndexManager:
         
         # Vrátíme tu nejdelší (nejpřesnější) shodu
         return best_match
-    
-    ''' - kratka shoda klice
-    def match_title(self, window_title: str) -> Optional[dict]:
-        """Tady se děje to kouzlo, o kterém jsi mluvil."""
-        title_lower = window_title.lower()
-        
-        # Projdeme naši mapu a zkusíme, jestli je nějaký klíč v titulku okna
-        for key, info in self.lookup_map.items():
-            # Pokud se název souboru (klíč) nachází v titulku okna (např. "Word - analyza.docx")
-            if key in title_lower and len(key) > 3: # len > 3 je ochrana proti krátkým nesmyslům
-                return info
-        
-        return None
-    '''
