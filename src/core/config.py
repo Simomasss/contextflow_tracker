@@ -29,11 +29,12 @@ class AppSettings:
 
         self.config_path = os.path.join(application_path, "settings.json")
         
+        # FIX: Předání ABSOLUTNÍ cesty pro vyřešení problému startupu!
         if not os.path.exists(self.config_path):
             logging.info(f"Vytvářím výchozí json soubor v: {self.config_path}")
-            self.save()
+            self.save(self.config_path)
         else:
-            self.load()
+            self.load(self.config_path)
 
     def load(self, path="settings.json"):
         """Načte data ze souboru a přepíše výchozí hodnoty."""

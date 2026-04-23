@@ -11,6 +11,11 @@ import customtkinter as ctk
 from src.utils.logger_config import setup_logging
 import logging
 
+# TENTO BLOK MUSÍ BÝT CO NEJVÝŠE:
+if getattr(sys, 'frozen', False):
+    # Pokud běžíme jako EXE, nastavíme pracovní adresář na složku s EXE
+    os.chdir(os.path.dirname(sys.executable))
+
 # Importy komponent
 from src.core.config import AppSettings
 from src.database.db_handler import DatabaseManager

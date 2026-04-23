@@ -56,10 +56,9 @@ class HomeFrame(ctk.CTkFrame):
         self.logs_frame.grid(row=2, column=0, sticky="nsew", padx=(10, 5), pady=10)
         
         # --- BOTTOM RIGHT: SUMMARY STATS ---
-        self.stats_frame = ctk.CTkFrame(self)
+        # Změna na ScrollableFrame
+        self.stats_frame = ctk.CTkScrollableFrame(self, label_text="Souhrn dne")
         self.stats_frame.grid(row=2, column=1, sticky="nsew", padx=(5, 10), pady=10)
-        self.stats_header = ctk.CTkLabel(self.stats_frame, text="Souhrn dne", font=ctk.CTkFont(weight="bold"))
-        self.stats_header.pack(pady=10)
 
         # Načíst data a vykreslit
         self.after(100, self.refresh_data)
@@ -164,25 +163,81 @@ class HomeFrame(ctk.CTkFrame):
             
     def update_stats(self, target_date):
         stats = self.aggregator.get_daily_stats_v2(target_date)
+        
+        # 1. Definice palety barev (profesionální a kontrastní)
+        COLORS = ["#3b8ed0", "#1f8d4e", "#d69e2e", "#8d1f1f", "#7d33ff", "#1fb18a"]
+        
         for widget in self.stats_frame.winfo_children():
-            if widget != self.stats_header: widget.destroy()
+            widget.destroy()
 
-        total_day_seconds = 0
-        for client, projects in stats.items():
-            # Nadpis klienta
-            ctk.CTkLabel(self.stats_frame, text=client, font=("Arial", 13, "bold"), text_color="#1f538d").pack(anchor="w", padx=15, pady=(10, 0))
+        if not stats:
+            ctk.CTkLabel(self.stats_frame, text="Žádná data pro tento den", font=("Arial", 12, "italic")).pack(pady=20)
+            return
+
+        total_day_seconds = sum(sum(p.values()) for p in stats.values())
+
+        # Iterujeme přes klienty a přiřazujeme barvy
+        for i, (client, projects) in enumerate(stats.items()):
+            # Výběr barvy pro aktuálního klienta (točíme paletu)
+            client_color = COLORS[i % len(COLORS)]
+            
+            # Nadpis klienta (barevný a výrazný)
+            ctk.CTkLabel(
+                self.stats_frame, 
+                text=client.upper(), 
+                font=("Arial", 11, "bold"), 
+                text_color=client_color
+            ).pack(anchor="w", padx=15, pady=(15, 5))
             
             for project, seconds in projects.items():
-                total_day_seconds += seconds
-                hours = seconds / 3600
-                lbl = ctk.CTkLabel(self.stats_frame, text=f"  • {project}: {hours:.2f} h", anchor="w")
-                lbl.pack(fill="x", padx=20)
+                # 1. Výpočty času (zůstávají stejné)
+                h = int(seconds // 3600)
+                m = int((seconds % 3600) // 60)
+                
+                # 2. Poměr pro grafiku (zůstává pro ProgressBar)
+                total_day_seconds = sum(sum(p.values()) for p in stats.values())
+                ratio = seconds / total_day_seconds if total_day_seconds > 0 else 0
+                
+                # 3. Čistý formát času bez desetinných míst
+                if h > 0:
+                    time_str = f"{h} h {m} min"
+                else:
+                    # Ochrana pro velmi krátké aktivity pod 1 minutu
+                    time_str = f"{m} min" if m > 0 else "< 1 min"
 
-        # Celková suma
+                # Výsledný label: "Projekt (1 h 36 min)"
+                lbl_text = f"{project} ({time_str})"
+                
+                # --- Zbytek vykreslování ---
+                proj_frame = ctk.CTkFrame(self.stats_frame, fg_color="transparent")
+                proj_frame.pack(fill="x", padx=20, pady=2)
+                
+                ctk.CTkLabel(proj_frame, text=lbl_text, font=("Arial", 12), anchor="w").pack(side="top", fill="x")
+                
+                bar = ctk.CTkProgressBar(proj_frame, height=14, corner_radius=6)
+                bar.set(ratio)
+                bar.configure(progress_color=client_color, fg_color="#242424")
+                bar.pack(side="top", fill="x", pady=(2, 8))
+
+        # Finální součet
+        # 1. Převod celkových sekund dne na lidský formát
+        total_h = int(total_day_seconds // 3600)
+        total_m = int((total_day_seconds % 3600) // 60)
+
+        if total_h > 0:
+            total_time_str = f"{total_h} h {total_m} min"
+        else:
+            total_time_str = f"{total_m} min"
+
+        # 2. Vykreslení
         ctk.CTkLabel(self.stats_frame, text="────────────────").pack(pady=5)
-        total_lbl = ctk.CTkLabel(self.stats_frame, text=f"CELKEM: {total_day_seconds/3600:.2f} h", 
-                                 font=("Arial", 15, "bold"))
-        total_lbl.pack(pady=5)
+        total_lbl = ctk.CTkLabel(
+            self.stats_frame, 
+            text=f"CELKEM ODPRACOVÁNO: {total_time_str}", 
+            font=("Arial", 15, "bold"),
+            text_color="#ffffff"
+        )
+        total_lbl.pack(pady=10, padx=15)
 
     def open_edit_dialog(self, log):
         # Otevře vyskakovací okno, které jsme vytvořili minule
@@ -238,34 +293,38 @@ class HomeFrame(ctk.CTkFrame):
             self.canvas_to_log[rect_id] = log
 
     def on_canvas_hover(self, event):
-        """Detekce hoveru nad blokem na ose."""
-        # Najdeme item pod myší
-        item = self.canvas.find_closest(event.x, event.y)[0]
-        tags = self.canvas.gettags(item)
-        
-        # Zjistíme, jestli jsme skutečně nad nějakým logem
+        """Detekce hoveru nad blokem na ose s auto-scrollem v seznamu."""
+        # 1. Najdeme item pod myší na plátně (ose)
+        closest = self.canvas.find_closest(event.x, event.y)
+        if not closest: 
+            return
+            
+        item = closest[0]
         log = self.canvas_to_log.get(item)
         
-        # Resetujeme barvy všech řádků v seznamu
+        # Resetujeme barvy všech řádků v seznamu na transparentní
         for row in self.log_to_row.values():
             row.configure(fg_color="transparent")
 
-        if log:
-            # 1. ZOBRAZIT TOOLTIP
-            dur = (log.end_time - log.start_time).total_seconds() / 60
-            txt = f"{log.project.client.name} | {log.project.name}\n{log.start_time.strftime('%H:%M')} ({dur:.0f} min)"
-            self.tooltip.configure(text=txt)
-            # Umístění tooltipu nad myš
-            self.tooltip.place(x=event.x + 20, y=self.canvas.winfo_y() - 40) # TODO: doladit umístění
+        if log and log.id in self.log_to_row:
+            row_widget = self.log_to_row[log.id]
             
-            # 2. ZVÝRAZNIT ŘÁDEK V SEZNAMU
-            if log.id in self.log_to_row:
-                row = self.log_to_row[log.id]
-                row.configure(fg_color="#2b5a8c") # Zvýrazňující barva
-                # Scroll na řádek (pokud bys chtěl být extra precizní)
-                # self.logs_frame._parent_canvas.yview_moveto(...)
-        else:
-            self.tooltip.place_forget()
+            # 2. Zvýraznění řádku
+            row_widget.configure(fg_color="#2b5a8c") 
+
+            # 3. AUTO-SCROLL (Aby byl řádek v logs_frame vidět)
+            self.update_idletasks() # Vynutí přepočet pozic widgetů
+            
+            # Získáme vnitřní plátno scrollable framu
+            canvas = self.logs_frame._parent_canvas
+            
+            # Vypočítáme relativní pozici řádku (0.0 až 1.0)
+            total_height = canvas.bbox("all")[3] # Celková výška obsahu uvnitř
+            if total_height > 0:
+                target_y = row_widget.winfo_y()
+                scroll_pos = target_y / total_height
+                # Posuneme scrollbar na vypočítanou pozici
+                canvas.yview_moveto(scroll_pos)
 
     def on_canvas_leave(self, event):
         self.tooltip.place_forget()
