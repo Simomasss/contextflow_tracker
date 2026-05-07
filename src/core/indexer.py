@@ -83,6 +83,7 @@ class IndexManager:
             return None
 
         # 2. TIE-BREAKER: Pokud je kandidátů víc, zkusíme najít název projektu v titulku
+        # snaha o rozlišení mezi projekty, který mají stejný klíč (prace1.docx v projektA + prace1.docx v projektB)
         if len(best_match_projects) > 1:
             for p in best_match_projects:
                 if p['project'].lower() in title_lower:
@@ -90,42 +91,3 @@ class IndexManager:
 
         # 3. Vrátíme první nalezený (vždy to bude dict ze seznamu)
         return best_match_projects[0]
-    
-
-'''
-def reindex(self):
-        """Projde rekurzivně vše pod MAIN a namapuje to na klienty/projekty. Ignoruje položky v IGNORED_DIR_NAMES a všechny skryté položky. (začínající '.')"""
-        if not self.root_path.exists(): return
-        new_map = {}
-        
-        for client_dir in self.root_path.iterdir():
-            if not client_dir.is_dir(): continue
-            
-            for project_dir in client_dir.iterdir():
-                if not project_dir.is_dir(): continue
-                
-                p_info = {"client": client_dir.name, "project": project_dir.name}
-                p_name_key = project_dir.name.lower()
-                
-                # 1. Přidáme název projektu (vždy unikátní v rámci klienta)
-                if p_name_key not in new_map: new_map[p_name_key] = []
-                new_map[p_name_key].append(p_info)
-                
-                # 2. Přidáme soubory
-                for item in project_dir.rglob("*"):
-                    # Ignorujeme balast (to už máš)
-                    if any(part.startswith('.') or part in self.IGNORED_DIR_NAMES for part in item.parts):
-                        continue
-                    
-                    if item.is_file():
-                        f_key = item.name.lower()
-                        if len(f_key) < 4: continue # Ochrana proti "1.pdf", "a.py"
-                        
-                        if f_key not in new_map: new_map[f_key] = []
-                        # Zamezíme duplicitám v seznamu pro jeden soubor
-                        if p_info not in new_map[f_key]:
-                            new_map[f_key].append(p_info)
-
-        self.lookup_map = new_map
-        logging.info(f"Index aktualizován: {len(self.lookup_map)} unikátních klíčů.")
-'''

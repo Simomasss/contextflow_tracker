@@ -33,10 +33,13 @@ class ActivityAggregator:
             # TODO: Error handling, kdyby nebyl projekt
 
             # 2. Sečteme sekundy
-            logs = self.get_raw_logs(start_date, end_date)
-            project_logs = [l for l in logs if l.project_id == project_id]
-            
-            total_seconds = sum((l.end_time - l.start_time).total_seconds() for l in project_logs)
+            stmt = select(ActivityLog.start_time, ActivityLog.end_time).where(
+                ActivityLog.project_id == project_id,
+                ActivityLog.start_time >= start_date,
+                ActivityLog.end_time <= end_date
+            )
+            project_logs = session.execute(stmt).all()
+            total_seconds = sum((end - start).total_seconds() for start, end in project_logs)
             
             # 3. Logika zaokrouhlování
             total_minutes = total_seconds / 60
@@ -139,15 +142,18 @@ class ActivityAggregator:
     def get_all_clients_summary(self):
         """Vrátí seznam všech klientů a jejich celkový čas v sekundách."""
         with self.db.Session() as session:
-            # Načteme klienty i s jejich projekty a logy
-            stmt = select(Client).options(joinedload(Client.projects).joinedload(Project.logs))
+            # Načteme klienty i s jejich projekty, ALE BEZ LOGŮ (ušetříme obrovské množství paměti)
+            stmt = select(Client).options(joinedload(Client.projects))
             clients = session.execute(stmt).unique().scalars().all()
+            
+            # Získáme jen sloupce potřebné pro výpočet u všech logů najednou (lehké tuples, žádné ORM objekty)
+            logs_stmt = select(ActivityLog.project_id, ActivityLog.start_time, ActivityLog.end_time)
+            all_logs = session.execute(logs_stmt).all()
             
             summary = []
             for c in clients:
-                total_sec = 0
-                for p in c.projects:
-                    total_sec += sum((l.end_time - l.start_time).total_seconds() for l in p.logs)
+                project_ids = {p.id for p in c.projects}
+                total_sec = sum((end - start).total_seconds() for pid, start, end in all_logs if pid in project_ids)
                 
                 summary.append({
                     "id": c.id,
@@ -167,16 +173,16 @@ class ActivityAggregator:
             start_dt = datetime.combine(start_date, datetime.min.time())
             end_dt = datetime.combine(end_date, datetime.max.time())
             
-            # Sečteme délku všech logů
+            # Optimalizace: Nenačítáme celé objekty ActivityLog, dotazujeme se pouze na sloupce s časem
             stmt = (
-                select(ActivityLog)
+                select(ActivityLog.start_time, ActivityLog.end_time)
                 .where(
                     ActivityLog.project_id == project_id,
                     ActivityLog.start_time >= start_dt,
                     ActivityLog.end_time <= end_dt
                 )
             )
-            logs = session.execute(stmt).scalars().all()
+            logs = session.execute(stmt).all()
             
-            total_seconds = sum((log.end_time - log.start_time).total_seconds() for log in logs)
+            total_seconds = sum((end - start).total_seconds() for start, end in logs)
             return total_seconds / 3600  # Převod na hodiny

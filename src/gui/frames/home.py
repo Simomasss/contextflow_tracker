@@ -89,10 +89,7 @@ class HomeFrame(ctk.CTkFrame):
     def refresh_data(self):
         # Aktualizace textu data
         formatted_date = self.current_date.strftime("%d. %m. %Y")
-        if self.current_date == datetime.now().date():
-            self.date_label.configure(text=f"Dnes ({formatted_date})")
-        else:
-            self.date_label.configure(text=formatted_date)
+        self.date_label.configure(text=formatted_date)
 
         # 1. Získáme data pro vybraný den
         logs = self.aggregator.get_raw_logs(

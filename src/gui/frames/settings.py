@@ -95,20 +95,9 @@ class SettingsFrame(ctk.CTkFrame):
             whitelist_raw = self.entries["WHITELIST"].get()
             self.settings.WHITELIST = [item.strip() for item in whitelist_raw.split(",") if item.strip()]
 
-            # 3. Uložení do souboru
+            # 3. Uložení do souboru # TODO: Je možná optimalizace settings?
             self.settings.save()
             messagebox.showinfo("Úspěch", "Nastavení uloženo. Pro propsání změn je nutné restartovat.\nV liště zvolte 'Ukončit' a pak znova zapněte ContextFlow.exe")
-
-            
-            # 4. Místo přímého volání to naplánujeme
-            # Tím dovolíme GUI dokončit tuhle funkci a nezůstat viset
-            #if self.launcher:
-                # Zavolá apply_settings za 100 milisekund
-            #    self.after(100, self.launcher.apply_settings)
-                
-            #messagebox.showinfo("Úspěch", "Nastavení uloženo. Engine se restartuje...")
-            
-            #messagebox.showinfo("Hotovo", "Nastavení aplikováno reaktivně!")
             
         except ValueError as e:
             messagebox.showerror("Chyba", "Zkontrolujte číselné hodnoty (Interval, AFK, Ochranná lhůta musí být čísla).")
@@ -130,41 +119,4 @@ class SettingsFrame(ctk.CTkFrame):
         
         answer = messagebox.askyesno("Potvrdit odinstalaci", msg)
         if answer:
-            # Zastavíme engine před smazáním (aby se uložil poslední log)
-            # Tady předpokládám, že máš přístup k launcheru přes controller/master
-            # Pokud ne, zavolej rovnou uninstaller, ale engine je lepší stopnout.
             run_contextflow_uninstaller()
-
-
-'''
-import customtkinter as ctk
-
-class SettingsFrame(ctk.CTkFrame):
-    def __init__(self, master, settings, **kwargs):
-        super().__init__(master, **kwargs)
-        self.settings = settings
-
-        ctk.CTkLabel(self, text="Globální nastavení", font=("Arial", 20, "bold")).pack(pady=20)
-
-        # Hlavní složka
-        ctk.CTkLabel(self, text="Složka s projekty:").pack(anchor="w", padx=40)
-        self.folder_entry = ctk.CTkEntry(self, width=400)
-        self.folder_entry.insert(0, self.settings.MAIN_FOLDER)
-        self.folder_entry.pack(pady=(0, 20))
-
-        # Ochranná lhůta
-        ctk.CTkLabel(self, text="Protection Minutes (lhůta pro přepnutí):").pack(anchor="w", padx=40)
-        self.prot_entry = ctk.CTkEntry(self, width=100)
-        self.prot_entry.insert(0, str(self.settings.PROTECTION_MINUTES))
-        self.prot_entry.pack(pady=(0, 20))
-
-        # Tlačítko Uložit
-        self.save_btn = ctk.CTkButton(self, text="Uložit nastavení", fg_color="blue", command=self.save)
-        self.save_btn.pack(pady=40)
-
-    def save(self):
-        self.settings.MAIN_FOLDER = self.folder_entry.get()
-        self.settings.PROTECTION_MINUTES = float(self.prot_entry.get())
-        self.settings.save()
-        logging.info("✓ Nastavení uloženo do settings.json")
-'''

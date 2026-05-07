@@ -7,10 +7,6 @@ class WindowInfo(BaseModel):
     title: str
     executable: str
     is_whitelisted: bool = Field(default=False)
-    
-    # OPRAVA: default_factory!
-    # Pokud napíšeš timestamp: datetime = datetime.now(), 
-    # Python tam dosadí čas, kdy jsi zapnul aplikaci, a ten tam zůstane navždy.
     # default_factory=datetime.now zajistí, že se čas vygeneruje znovu pro každé okno.
     timestamp: datetime = Field(default_factory=datetime.now)
 

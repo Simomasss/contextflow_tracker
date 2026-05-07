@@ -116,6 +116,7 @@ class ClientsFrame(ctk.CTkFrame):
 
         self.project_vars = {}
         self.project_hour_labels = {} # TADY si uložíme ty štítky pro pozdější update
+        self.project_rate_entries = {} # Pro ukládání hodinové sazby
 
         for p in projects:
             row = ctk.CTkFrame(self.proj_list_container, fg_color="transparent")
@@ -132,6 +133,14 @@ class ClientsFrame(ctk.CTkFrame):
             hrs_label.pack(side="right", padx=10)
             self.project_hour_labels[p.id] = hrs_label
 
+            # Vstupní pole pro hodinovou sazbu
+            rate_entry = ctk.CTkEntry(row, width=80)
+            rate_entry.insert(0, str(p.hourly_rate or 0.0))
+            rate_entry.pack(side="right", padx=5)
+            self.project_rate_entries[p.id] = rate_entry
+
+            ctk.CTkLabel(row, text="Kč/h:", text_color="gray").pack(side="right")
+
         # Na konci show_detail jednou zavoláme update, aby se tam hned objevily časy pro výchozí měsíc
         self.update_project_hours()
 
@@ -139,7 +148,7 @@ class ClientsFrame(ctk.CTkFrame):
         btn_frame = ctk.CTkFrame(self.detail_container, fg_color="transparent")
         btn_frame.pack(fill="x", padx=20, pady=20)
 
-        ctk.CTkButton(btn_frame, text="Uložit změny profilů", command=self.save_profiles, fg_color="gray").pack(side="left", padx=5)
+        ctk.CTkButton(btn_frame, text="Uložit změny profilů a sazeb", command=self.save_profiles, fg_color="gray").pack(side="left", padx=5)
         ctk.CTkButton(btn_frame, text="Generovat PDF Fakturu", command=self.generate_invoice, fg_color="green").pack(side="left", padx=5)
 
     def _add_section_label(self, text):
@@ -158,27 +167,46 @@ class ClientsFrame(ctk.CTkFrame):
             entries[key] = entry
         return entries
 
+    def _save_project_rates(self, session):
+        """Pomocná metoda pro uložení hodinových sazeb z formuláře."""
+        for pid, entry in self.project_rate_entries.items():
+            try:
+                rate_val = float(entry.get())
+                proj = session.get(Project, pid)
+                if proj:
+                    proj.hourly_rate = rate_val
+            except (ValueError, TypeError):
+                # Pokud hodnota není platné číslo, ignorujeme ji, aby aplikace nespadla.
+                pass
+
+    def _save_form_data(self, session):
+        """Pomocná metoda pro uložení všech dat z formulářů (Odesílatel, Příjemce, Sazby)."""
+        profile = session.execute(select(BillingProfile)).scalar_one_or_none()
+        if not profile:
+            profile = BillingProfile()
+            session.add(profile)
+        
+        profile.name = self.sender_entries["name"].get()
+        profile.address = self.sender_entries["address"].get()
+        profile.ico = self.sender_entries["ico"].get()
+        profile.dic = self.sender_entries["dic"].get()
+        profile.bank_account = self.sender_entries["bank"].get()
+
+        client = session.get(Client, self.selected_client_id)
+        if client:
+            client.name = self.client_entries["name"].get()
+            client.address = self.client_entries["address"].get()
+            client.ico = self.client_entries["ico"].get()
+            client.dic = self.client_entries["dic"].get()
+            client.email = self.client_entries["email"].get()
+
+        # Uložíme i sazby projektů
+        self._save_project_rates(session)
+
     def save_profiles(self):
         try:
             with self.aggregator.db.Session() as session:
-                profile = session.execute(select(BillingProfile)).scalar_one_or_none()
-                if not profile:
-                    profile = BillingProfile()
-                    session.add(profile)
-                
-                profile.name = self.sender_entries["name"].get()
-                profile.address = self.sender_entries["address"].get()
-                profile.ico = self.sender_entries["ico"].get()
-                profile.dic = self.sender_entries["dic"].get()
-                profile.bank_account = self.sender_entries["bank"].get()
-
-                client = session.get(Client, self.selected_client_id)
-                client.name = self.client_entries["name"].get()
-                client.address = self.client_entries["address"].get()
-                client.ico = self.client_entries["ico"].get()
-                client.dic = self.client_entries["dic"].get()
-                client.email = self.client_entries["email"].get()
-
+                self._save_form_data(session)
                 session.commit()
             messagebox.showinfo("Hotovo", "Údaje byly uloženy.")
             self.render_list()
@@ -214,6 +242,25 @@ class ClientsFrame(ctk.CTkFrame):
 
     def generate_invoice(self):
         try:
+            # Nejdříve uložíme VEŠKERÁ DATA (profily i sazby), aby se projevila ve faktuře
+            with self.aggregator.db.Session() as session:
+                self._save_form_data(session)
+                session.commit()
+
+            # --- VALIDACE: Zkontrolujeme, jestli jsou profily uložené v DB ---
+            with self.aggregator.db.Session() as session:
+                profile = session.execute(select(BillingProfile)).scalar_one_or_none()
+                client = session.get(Client, self.selected_client_id)
+                
+                # Pokud profil nebo klient v DB chybí, nebo nemají ani jméno,
+                # znamená to, že uživatel ještě neuložil vyplněný formulář.
+                if not profile or not profile.name or not client or not client.name:
+                    messagebox.showerror(
+                        "Chybějící údaje",
+                        "Vložte informace pro fakturu a následně uložte změny profilů."
+                    )
+                    return
+
             selected_ids = [pid for pid, var in self.project_vars.items() if var.get()]
             if not selected_ids:
                 messagebox.showwarning("Varování", "Vyberte alespoň jeden projekt!")

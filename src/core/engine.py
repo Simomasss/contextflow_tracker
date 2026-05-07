@@ -33,13 +33,9 @@ class ContextEngine:
         self._stop_event = threading.Event()
         self.is_running = False
 
-#TODO: pro pripad, kdyz force ukoncovani
     def start(self):
         """Spustí hlavní sledovací smyčku."""
         self.is_running = True 
-        # PŘEJÍT NA EVENT-DRIVEN ARCHITEKTURU BY BYLO IDEÁLNÍ, ALE PRO ZATÍM NECHÁME TICKOVACÍ SMYČKU
-        # MOŽNÁ BY ŠLO PŘIDAT I ASYNCHRONNÍ PODPORU PRO FILE WATCHER, ABYCHOM MĚLI REAKTIVNÍ ZMĚNY NA DISKU, ALE PRO ZATÍM TO NECHÁME TAKTO JAK JE
-        # TICKOVACÍ SMYČKA JE SNADNÁ NA IMPLEMENTACI A PRO VELKOU VĚTŠINU SCÉNÁŘŮ BUDE DOSTATEČNĚ RYCHLÁ (5 SEKUNDOVÝ INTERVAL)
         logging.info(f"Engine ContextFlow byl spuštěn... interval je {self.settings.TICK_INTERVAL} sekund.")
         try:
             while self.is_running:
@@ -85,16 +81,13 @@ class ContextEngine:
         # --- B. VSTUP A MATCHING ---
         window = self.watcher.watch()
 
-        # Tímto checkem 'window is not None' uklidníme type checker
         if window:
-            # Teď už kontrolor ví, že window.title existuje
             match_dict = self.indexer.match_title(window.title) if window.is_whitelisted else None
             
             new_match = None
             if match_dict:
                 new_match = ContextMatch(client_name=match_dict['client'], project_name=match_dict['project'])
-                logging.info(f"[MATCH] '{window.title}'")
-                # ({window.executable}) -> [KLIENT]: {new_match.client_name} [PROJEKT]: {new_match.project_name}
+                logging.info(f"[MATCH] '{window.title}'") # ({window.executable}) -> [KLIENT]: {new_match.client_name} [PROJEKT]: {new_match.project_name}
         else:
             # window je None, logování nebo match nemá smysl
             match_dict = None
@@ -113,7 +106,7 @@ class ContextEngine:
         # --- D. LOGIKA RESETOVÁNÍ TIMERU (Klíčová změna) ---
         if self.current_activity is None:
             # Režim START: Pokud nic neděláme, každá změna okna musí resetovat timer, 
-            # abychom potvrdili, že na tom novém okně fakt sedíš (např. 1 minutu).
+            # abychom potvrdili, že na tom novém okně fakt jsme (např. 1 minutu).
             if new_match != self.pending_activity:
                 logging.info(f"[{now_str}] [IDLE] Změna cíle na: {new_match.project_name if new_match else 'NIC'}. Reset timeru.")
                 self.timer = 0
@@ -168,24 +161,3 @@ class ContextEngine:
         self.is_running = False
         self._stop_event.set()
         logging.info("Engine se zastavuje...")
-
-'''
-        # A) NÁVRAT DO AKTIVNÍHO KONTEXTU
-        if self.current_activity and new_match and new_match.project_name == self.current_activity.project_name:
-            if self.timer > 0:
-                logging.info(f"[{now_str}] [BACK] Návrat k hlavní práci.")
-            self.timer = 0 # TADY resetujeme, protože jsme zpět "doma"
-            self.pending_activity = None
-            self._write_to_db(self.current_activity, window)
-            return
-
-        # B) JSME MIMO AKTIVNÍ KONTEXT (Nebo v IDLE)
-        # Tady se rozhodujeme, jestli budeme sledovat nového kandidáta
-        if new_match != self.pending_activity:
-            # Pokud se změní to, co děláme mimo hlavní práci, 
-            # updatujeme pending_activity, ale NERESETUJEME timer!
-            self.pending_activity = new_match
-            logging.info(f"[{now_str}] [INFO] Nový kandidát: {new_match.project_name if new_match else 'IDLE/Grace'}")
-
-        self.timer += 1
-'''
