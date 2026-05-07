@@ -1,5 +1,6 @@
 import logging
 import time
+import threading
 from datetime import datetime
 from typing import Optional
 
@@ -29,6 +30,7 @@ class ContextEngine:
         self.pending_activity: Optional[ContextMatch] = None # Projekt, který se "rýsuje" jako nový, ale ještě nemáme potvrzeno, že tam opravdu jsme
         self.timer = 0 # Počítadlo ticků pro potvrzení změny
 
+        self._stop_event = threading.Event()
         self.is_running = False
 
 #TODO: pro pripad, kdyz force ukoncovani
@@ -42,7 +44,7 @@ class ContextEngine:
         try:
             while self.is_running:
                 self._tick()
-                time.sleep(self.settings.TICK_INTERVAL) # Nastavitelný interval mezi tickem (např. 5 sekund)
+                self._stop_event.wait(self.settings.TICK_INTERVAL) # Reaguje okamžitě na self.stop()
         except KeyboardInterrupt:
             self.stop()
     
@@ -91,7 +93,6 @@ class ContextEngine:
             new_match = None
             if match_dict:
                 new_match = ContextMatch(client_name=match_dict['client'], project_name=match_dict['project'])
-                # Tady už to chybu házet nebude!
                 logging.info(f"[MATCH] '{window.title}'")
                 # ({window.executable}) -> [KLIENT]: {new_match.client_name} [PROJEKT]: {new_match.project_name}
         else:
@@ -165,6 +166,7 @@ class ContextEngine:
 
     def stop(self):
         self.is_running = False
+        self._stop_event.set()
         logging.info("Engine se zastavuje...")
 
 '''

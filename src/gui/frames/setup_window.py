@@ -82,7 +82,7 @@ class SetupWindow(ctk.CTk):
         content_frame.pack(fill="both", expand=True)
 
         tips = [
-            ("🌐 Web a E-maily", "V této verzi aplikace zatím nepodporuje trackování webových prohlížečů (kromě PDF otevřených v prohlížečích např. Chrome/Edge) ani e-mailových klientů."),
+            ("🌐 Web a E-maily", "V této verzi aplikace zatím nepodporuje měření webových prohlížečů (kromě PDF otevřených v prohlížečích např. Chrome/Edge) ani e-mailových klientů."),
             ("📝 Whitelist programů", "Pokud pracujete v editoru a čas neběží, zkontrolujte, zda máte název .exe souboru v 'Nastavení -> Whitelist'. Např. 'code.exe' pro VS Code nebo 'WINWORD.exe' pro word.\nPokud aplikace není ve whitelistu -> nebude sledována!!!\nPro dohledání .exe názvu, napište do prohlížeče 'danou aplikaci a exe name'."),
             ("📂 Kontext souboru", "Tracker se aktivuje pouze tehdy, pokud máte otevřený soubor, který fyzicky leží uvnitř vaší MAIN složky.\nKontext se následně přiřadí, když je soubor správně pod klientem a určitým projektem.")
         ]

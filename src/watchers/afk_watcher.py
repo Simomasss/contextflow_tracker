@@ -12,9 +12,15 @@ class AFKWatcher(BaseWatcher):
         """Vrátí počet milisekund od poslední interakce uživatele."""
         # GetTickCount() vrací čas od spuštění systému
         # GetLastInputInfo() vrací čas posledního stisku klávesy/pohybu myši
-        last_input_info = win32api.GetLastInputInfo()
-        current_tick = win32api.GetTickCount()
-        return current_tick - last_input_info
+        try:
+            last_input_info = win32api.GetLastInputInfo()
+            current_tick = win32api.GetTickCount()
+            
+            # Modulo (1 << 32) ensures the difference is calculated correctly even if the system tick counter wraps around to 0 after 49.7 days.
+            return (current_tick - last_input_info) % (1 << 32)
+        except Exception:
+            # Ochrana pro případ zamknuté obrazovky (Secure Desktop), kdy může API selhat
+            return 0
 
     def watch(self) -> bool:
         """

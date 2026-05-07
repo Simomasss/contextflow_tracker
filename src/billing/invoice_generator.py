@@ -10,8 +10,7 @@ class InvoiceGenerator:
         self.pdf.add_page()
         # Použijeme standardní font, dokud si nenastavíš vlastní s CZ diakritikou
         # TODO: --- NASTAVENÍ FONTU (Nutné pro češtinu) ---
-        # Stáhni si libovolný .ttf font s podporou CZ a dej k němu cestu
-        # Pokud ho zatím nemáš, Python vyhodí chybu u diakritiky.
+        # Stáhnout si libovolný .ttf font s podporou CZ a dát k němu cestu
         # self.pdf.add_font('DejaVu', '', 'src/assets/fonts/DejaVuSans.ttf', uni=True)
         # self.pdf.set_font('DejaVu', size=10)
         
