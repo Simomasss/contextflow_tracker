@@ -23,7 +23,7 @@ class WindowWatcher(BaseWatcher):
             return WindowInfo(
                 title=win32gui.GetWindowText(hwnd),
                 executable=exe_name,
-                is_whitelisted=is_whitelisted # Ted watcher bude vracet i info o whitelistu, místo None
+                is_whitelisted=is_whitelisted
             )
 
         except (psutil.NoSuchProcess, psutil.AccessDenied):

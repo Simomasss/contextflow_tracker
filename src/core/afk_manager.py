@@ -8,8 +8,6 @@ class AFKManager:
         """
         self.last_activity = time.time()
         self.threshold = idle_threshold
-        
-        # Spustíme listenery na pozadí
         self.mouse_listener = mouse.Listener(on_move=self._on_activity)
         self.kb_listener = keyboard.Listener(on_press=self._on_activity)
         self.mouse_listener.start()

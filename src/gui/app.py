@@ -2,8 +2,6 @@ import customtkinter as ctk
 from .frames.home import HomeFrame
 from .frames.clients import ClientsFrame
 from .frames.settings import SettingsFrame
-from ..core.config import AppSettings
-from ..database.db_handler import DatabaseManager
 from ..core.aggregator import ActivityAggregator
 
 class ContextFlowGUI(ctk.CTk):
@@ -15,17 +13,8 @@ class ContextFlowGUI(ctk.CTk):
         self.db = launcher.db
         self.aggregator = ActivityAggregator(self.db)
 
-        # --- 1. NASTAVENÍ A DATABÁZE --- TODO: meli bychom nacitat z configu
-        # Tady definujeme stejná nastavení jako v testu
-        #self.settings = AppSettings()
-        
-        # Připojíme se k databázi
-        #self.db = DatabaseManager(settings=self.settings, db_url="sqlite:///contextflow.db")
-        #self.aggregator = ActivityAggregator(self.db)
-        
-
         # --- 2. ZÁKLADNÍ OKNO ---
-        self.title("ContextFlow") # TODO: pridat verzi
+        self.title("ContextFlow")
         self.geometry("1100x700")
 
         # Konfigurace gridu
@@ -39,13 +28,13 @@ class ContextFlowGUI(ctk.CTk):
         self.logo_label = ctk.CTkLabel(self.sidebar, text="ContextFlow", font=ctk.CTkFont(size=20, weight="bold"))
         self.logo_label.pack(pady=20, padx=20)
 
-        self.home_btn = ctk.CTkButton(self.sidebar, text="Home", command=self.show_home)
+        self.home_btn = ctk.CTkButton(self.sidebar, text="Domů", command=self.show_home)
         self.home_btn.pack(pady=10, padx=20)
 
-        self.clients_btn = ctk.CTkButton(self.sidebar, text="Clients", command=self.show_clients)
+        self.clients_btn = ctk.CTkButton(self.sidebar, text="Klienti", command=self.show_clients)
         self.clients_btn.pack(pady=10, padx=20)
 
-        self.settings_btn = ctk.CTkButton(self.sidebar, text="Settings", command=self.show_settings)
+        self.settings_btn = ctk.CTkButton(self.sidebar, text="Nastavení", command=self.show_settings)
         self.settings_btn.pack(pady=10, padx=20)
 
         # --- 4. HLAVNÍ PLOCHA ---
@@ -57,7 +46,6 @@ class ContextFlowGUI(ctk.CTk):
 
     def show_home(self):
         self.clear_main_view()
-        # Předáme Master, Aggregator a barvu
         self.home_page = HomeFrame(self.main_view, self.aggregator, fg_color="transparent")
         self.home_page.pack(fill="both", expand=True)
 

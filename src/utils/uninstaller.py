@@ -6,8 +6,6 @@ import subprocess
 
 def run_contextflow_uninstaller():
     """Provede odinstalaci aplikace (mimo databáze)."""
-    
-    # Inicializujeme proměnné na začátku, aby linter neprskal
     exe_path = ""
     is_exe = False
     
@@ -29,7 +27,6 @@ def run_contextflow_uninstaller():
         is_exe = True
     else:
         # Režim vývoje (skript) - base_dir je root projektu
-        # Jdeme o 2 úrovně výš z src/utils
         base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
         is_exe = False
 
@@ -46,7 +43,7 @@ def run_contextflow_uninstaller():
     # 4. Smazání samotného EXE (jen pokud existuje cesta a jsme v EXE)
     if is_exe and exe_path:
         logging.info("! Spouštím self-destruct sekvenci pro EXE...")
-        # Příkaz pro CMD: počká 2s a pak smaže soubor na dané cestě
+        # CMD: počká 2s a pak smaže soubor
         cmd = f'timeout /t 2 > nul && del /f /q "{exe_path}"'
         subprocess.Popen(cmd, shell=True)
     

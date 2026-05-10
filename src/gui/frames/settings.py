@@ -8,12 +8,12 @@ class SettingsFrame(ctk.CTkFrame):
         super().__init__(master, **kwargs)
         self.settings = settings
         self.launcher = launcher
-        self.entries = {} # Slovník pro snadný přístup k polím
+        self.entries = {}
 
         # Nadpis
         ctk.CTkLabel(self, text="Konfigurace systému", font=ctk.CTkFont(size=22, weight="bold")).pack(pady=(10, 20))
 
-        # Vytvoření skrolovací oblasti, kdyby se nastavení nevešla na obrazovku
+        # Vytvoření skrolovací oblast
         self.scroll_frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
         self.scroll_frame.pack(fill="both", expand=True, padx=20, pady=10)
 
@@ -42,7 +42,7 @@ class SettingsFrame(ctk.CTkFrame):
         )
         self.save_btn.pack(pady=20)
 
-        # Tlačítko odinstalace (dáme ho dospod)
+        # Tlačítko odinstalace
         self.uninstall_btn = ctk.CTkButton(
             self, 
             text="ODINSTALOVAT APLIKACI", 
@@ -70,7 +70,6 @@ class SettingsFrame(ctk.CTkFrame):
         # Načtení aktuální hodnoty ze settings objektu
         current_val = getattr(self.settings, key)
         
-        # Pokud je to list (Whitelist), převedeme ho na string s čárkami
         if isinstance(current_val, list):
             entry.insert(0, ", ".join(current_val))
         else:
@@ -117,7 +116,6 @@ class SettingsFrame(ctk.CTkFrame):
             messagebox.showerror("Chyba", f"Nepodařilo se uložit nastavení: {e}")
 
     def confirm_uninstall(self):
-        # Dvojité potvrzení, aby se tester neuklikl
         msg = (
             "Opravdu chcete ContextFlow odinstalovat?\n\n"
             "• Aplikace se smaže (EXE)\n"

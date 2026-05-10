@@ -56,7 +56,6 @@ class HomeFrame(ctk.CTkFrame):
         self.logs_frame.grid(row=2, column=0, sticky="nsew", padx=(10, 5), pady=10)
         
         # --- BOTTOM RIGHT: SUMMARY STATS ---
-        # Změna na ScrollableFrame
         self.stats_frame = ctk.CTkScrollableFrame(self, label_text="Souhrn dne")
         self.stats_frame.grid(row=2, column=1, sticky="nsew", padx=(5, 10), pady=10)
 
@@ -70,7 +69,7 @@ class HomeFrame(ctk.CTkFrame):
         # Tooltip (blob) - schovaný label, který budeme posouvat
         self.tooltip = ctk.CTkLabel(self, text="", fg_color="#1a1a1a", text_color="white", 
                                    corner_radius=6, font=("Arial", 11), padx=10)
-        self.tooltip.place_forget() # Schovat při startu
+        self.tooltip.place_forget()
 
     # --- NAVIGAČNÍ LOGIKA ---
 
@@ -87,11 +86,9 @@ class HomeFrame(ctk.CTkFrame):
         self.refresh_data()
 
     def refresh_data(self):
-        # Aktualizace textu data
         formatted_date = self.current_date.strftime("%d. %m. %Y")
         self.date_label.configure(text=formatted_date)
 
-        # 1. Získáme data pro vybraný den
         logs = self.aggregator.get_raw_logs(
             datetime.combine(self.current_date, datetime.min.time()),
             datetime.combine(self.current_date, datetime.max.time())
@@ -108,15 +105,12 @@ class HomeFrame(ctk.CTkFrame):
             widget.destroy()
 
         self.log_to_row = {} # Vyčistit staré reference
-        # Konfigurace sloupců pro celou plochu scrollable framu
-        # (Sloupec 2 - Aktivita - bude mít největší váhu a bude se roztahovat)
         self.logs_frame.grid_columnconfigure(2, weight=1)
 
         # 2. ZÁHLAVÍ (Header)
         header_row = ctk.CTkFrame(self.logs_frame, fg_color="#333333", height=30)
         header_row.pack(fill="x", padx=5, pady=(0, 5))
         
-        # V záhlaví použijeme grid, aby seděl s daty níže
         header_row.grid_columnconfigure(2, weight=1)
         
         ctk.CTkLabel(header_row, text="Čas", width=120).grid(row=0, column=0, padx=5, sticky="w")
@@ -133,10 +127,8 @@ class HomeFrame(ctk.CTkFrame):
             row = ctk.CTkFrame(self.logs_frame, fg_color="transparent")
             row.pack(fill="x", padx=5, pady=2)
 
-            # TADY: Uložíme si frame pod ID logu
+            # Uložíme si frame pod ID logu
             self.log_to_row[log.id] = row
-            
-            # Nastavení gridu pro každý řádek
             row.grid_columnconfigure(2, weight=1) # Sloupec s titulkem okna je pružný
             
             # Čas
@@ -147,11 +139,9 @@ class HomeFrame(ctk.CTkFrame):
             cp_text = f"{log.project.client.name} / {log.project.name}"
             ctk.CTkLabel(row, text=cp_text, font=("Arial", 11, "bold"), width=180, anchor="w").grid(row=0, column=1, padx=5)
             
-            # Titulek okna (Omezíme délku, aby se grid nezbláznil)
             win_title = log.window_title[:60] + "..." if len(log.window_title) > 60 else log.window_title
             ctk.CTkLabel(row, text=win_title, font=("Arial", 11), anchor="w").grid(row=0, column=2, padx=5, sticky="ew")
             
-            # Tlačítko EDIT (Teď už ho grid "vynutí" na pravou stranu)
             edit_btn = ctk.CTkButton(
                 row, text="✎", width=35, height=24, fg_color="#444444",
                 command=lambda l=log: self.open_edit_dialog(l)
@@ -161,7 +151,7 @@ class HomeFrame(ctk.CTkFrame):
     def update_stats(self, target_date):
         stats = self.aggregator.get_daily_stats_v2(target_date)
         
-        # 1. Definice palety barev (profesionální a kontrastní)
+        # 1. Definice palety barev
         COLORS = ["#3b8ed0", "#1f8d4e", "#d69e2e", "#8d1f1f", "#7d33ff", "#1fb18a"]
         
         for widget in self.stats_frame.winfo_children():
@@ -173,12 +163,9 @@ class HomeFrame(ctk.CTkFrame):
 
         total_day_seconds = sum(sum(p.values()) for p in stats.values())
 
-        # Iterujeme přes klienty a přiřazujeme barvy
         for i, (client, projects) in enumerate(stats.items()):
-            # Výběr barvy pro aktuálního klienta (točíme paletu)
             client_color = COLORS[i % len(COLORS)]
             
-            # Nadpis klienta (barevný a výrazný)
             ctk.CTkLabel(
                 self.stats_frame, 
                 text=client.upper(), 
@@ -187,25 +174,21 @@ class HomeFrame(ctk.CTkFrame):
             ).pack(anchor="w", padx=15, pady=(15, 5))
             
             for project, seconds in projects.items():
-                # 1. Výpočty času (zůstávají stejné)
                 h = int(seconds // 3600)
                 m = int((seconds % 3600) // 60)
                 
-                # 2. Poměr pro grafiku (zůstává pro ProgressBar)
                 total_day_seconds = sum(sum(p.values()) for p in stats.values())
                 ratio = seconds / total_day_seconds if total_day_seconds > 0 else 0
                 
-                # 3. Čistý formát času bez desetinných míst
                 if h > 0:
                     time_str = f"{h} h {m} min"
                 else:
                     # Ochrana pro velmi krátké aktivity pod 1 minutu
                     time_str = f"{m} min" if m > 0 else "< 1 min"
 
-                # Výsledný label: "Projekt (1 h 36 min)"
+                # "Projekt (1 h 36 min)"
                 lbl_text = f"{project} ({time_str})"
                 
-                # --- Zbytek vykreslování ---
                 proj_frame = ctk.CTkFrame(self.stats_frame, fg_color="transparent")
                 proj_frame.pack(fill="x", padx=20, pady=2)
                 
@@ -217,7 +200,6 @@ class HomeFrame(ctk.CTkFrame):
                 bar.pack(side="top", fill="x", pady=(2, 8))
 
         # Finální součet
-        # 1. Převod celkových sekund dne na lidský formát
         total_h = int(total_day_seconds // 3600)
         total_m = int((total_day_seconds % 3600) // 60)
 
@@ -226,7 +208,7 @@ class HomeFrame(ctk.CTkFrame):
         else:
             total_time_str = f"{total_m} min"
 
-        # 2. Vykreslení
+        # Vykreslení
         ctk.CTkLabel(self.stats_frame, text="────────────────").pack(pady=5)
         total_lbl = ctk.CTkLabel(
             self.stats_frame, 
@@ -237,8 +219,6 @@ class HomeFrame(ctk.CTkFrame):
         total_lbl.pack(pady=10, padx=15)
 
     def open_edit_dialog(self, log):
-        # Otevře vyskakovací okno, které jsme vytvořili minule
-        # refresh_data zajistí, že po uložení se dashboard hned překreslí
         EditLogDialog(self, log, self.aggregator.db, self.refresh_data)
 
     def draw_timeline(self, logs):
@@ -248,12 +228,11 @@ class HomeFrame(ctk.CTkFrame):
         w = self.canvas.winfo_width()
         if w <= 1: w = 800
         
-        # 1. POZADÍ (Track) - Šedá linka, po které se "jede"
+        # 1. POZADÍ (Track) - Šedá linka
         self.canvas.create_rectangle(0, 35, w, 45, fill="#333333", outline="")
 
         for i in range(25):
             x = (i / 24) * w
-            # Subtilní značky hodin
             self.canvas.create_line(x, 30, x, 50, fill="#444444")
             if i % 3 == 0:
                 self.canvas.create_text(x, 65, text=f"{i:02}:00", fill="#666666", font=("Arial", 9))
@@ -263,7 +242,6 @@ class HomeFrame(ctk.CTkFrame):
         project_colors = {}
         color_idx = 0
 
-        # Hranice dnešního dne pro vizuální ořez
         day_start = datetime.combine(self.current_date, datetime.min.time())
         day_end = datetime.combine(self.current_date, datetime.max.time())
 
@@ -273,7 +251,6 @@ class HomeFrame(ctk.CTkFrame):
                 project_colors[p_name] = colors[color_idx % len(colors)]
                 color_idx += 1
 
-            # Vizuálně zařízneme log na hranici zobrazeného dne
             actual_start = max(log.start_time, day_start)
             actual_end = min(log.end_time, day_end)
 
@@ -298,8 +275,7 @@ class HomeFrame(ctk.CTkFrame):
             self.canvas_to_log[rect_id] = log
 
     def on_canvas_hover(self, event):
-        """Detekce hoveru nad blokem na ose s auto-scrollem v seznamu."""
-        # 1. Najdeme item pod myší na plátně (ose)
+        """Zobrazí tooltip a posune seznam logů na příslušný záznam."""
         closest = self.canvas.find_closest(event.x, event.y)
         if not closest: 
             return
@@ -307,28 +283,22 @@ class HomeFrame(ctk.CTkFrame):
         item = closest[0]
         log = self.canvas_to_log.get(item)
         
-        # Resetujeme barvy všech řádků v seznamu na transparentní
         for row in self.log_to_row.values():
             row.configure(fg_color="transparent")
 
         if log and log.id in self.log_to_row:
             row_widget = self.log_to_row[log.id]
             
-            # 2. Zvýraznění řádku
             row_widget.configure(fg_color="#2b5a8c") 
 
-            # 3. AUTO-SCROLL (Aby byl řádek v logs_frame vidět)
-            self.update_idletasks() # Vynutí přepočet pozic widgetů
+            self.update_idletasks()
             
-            # Získáme vnitřní plátno scrollable framu
             canvas = self.logs_frame._parent_canvas
             
-            # Vypočítáme relativní pozici řádku (0.0 až 1.0)
-            total_height = canvas.bbox("all")[3] # Celková výška obsahu uvnitř
+            total_height = canvas.bbox("all")[3]
             if total_height > 0:
                 target_y = row_widget.winfo_y()
                 scroll_pos = target_y / total_height
-                # Posuneme scrollbar na vypočítanou pozici
                 canvas.yview_moveto(scroll_pos)
 
     def on_canvas_leave(self, event):
@@ -337,7 +307,6 @@ class HomeFrame(ctk.CTkFrame):
             row.configure(fg_color="transparent")
 
     def draw_rounded_rect(self, x1, y1, x2, y2, radius=8, **kwargs):
-        # Body pro polygon, které Tkinter díky smooth=True zaoblí
         points = [
             x1+radius, y1, x1+radius, y1, x2-radius, y1, x2-radius, y1, 
             x2, y1, x2, y1+radius, x2, y1+radius, x2, y2-radius, x2, 
@@ -345,5 +314,4 @@ class HomeFrame(ctk.CTkFrame):
             y2, x1+radius, y2, x1, y2, x1, y2-radius, x1, y2-radius, 
             x1, y1+radius, x1, y1+radius, x1, y1
         ]
-        # VOLÁME TO NA self.canvas, ne na self
         return self.canvas.create_polygon(points, **kwargs, smooth=True)

@@ -16,10 +16,9 @@ class AFKWatcher(BaseWatcher):
             last_input_info = win32api.GetLastInputInfo()
             current_tick = win32api.GetTickCount()
             
-            # Modulo (1 << 32) ensures the difference is calculated correctly even if the system tick counter wraps around to 0 after 49.7 days.
             return (current_tick - last_input_info) % (1 << 32)
         except Exception:
-            # Ochrana pro případ zamknuté obrazovky (Secure Desktop), kdy může API selhat
+            # Ochrana pro případ zamknuté obrazovky
             return 0
 
     def watch(self) -> bool:

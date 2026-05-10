@@ -1,6 +1,7 @@
 import customtkinter as ctk
 from datetime import date, datetime, timedelta
-from tkinter import messagebox
+from tkinter import messagebox, filedialog
+import os
 from sqlalchemy import select
 
 from ...database.models import Project, Client, BillingProfile
@@ -11,6 +12,7 @@ class ClientsFrame(ctk.CTkFrame):
         super().__init__(master, **kwargs)
         self.aggregator = aggregator
         self.selected_client_id = None
+        self.client_buttons = {}
 
         # --- LAYOUT ---
         self.grid_columnconfigure(0, weight=0, minsize=200) 
@@ -30,6 +32,7 @@ class ClientsFrame(ctk.CTkFrame):
     def render_list(self):
         for widget in self.list_frame.winfo_children():
             widget.destroy()
+        self.client_buttons.clear()
         
         clients = self.aggregator.get_all_clients_summary()
         for c in clients:
@@ -41,15 +44,21 @@ class ClientsFrame(ctk.CTkFrame):
                 anchor="w"
             )
             btn.pack(fill="x", pady=2, padx=5)
+            self.client_buttons[c['id']] = btn
 
     def show_detail(self, client_id):
         self.selected_client_id = client_id
+
+        # Vizuální zvýraznění aktivní položky v levém menu
+        for cid, btn in self.client_buttons.items():
+            if cid == client_id:
+                btn.configure(fg_color="#1f538d", border_width=0)
+            else:
+                btn.configure(fg_color="transparent", border_width=1)
         
-        # Vyčistit kontejner
         for widget in self.detail_container.winfo_children():
             widget.destroy()
 
-        # Načíst data z DB
         with self.aggregator.db.Session() as session:
             client = session.get(Client, client_id)
             profile = session.execute(select(BillingProfile)).scalar_one_or_none()
@@ -66,6 +75,24 @@ class ClientsFrame(ctk.CTkFrame):
             "dic": ("DIČ:", profile.dic if profile else ""),
             "bank": ("Bankovní účet:", profile.bank_account if profile else "")
         })
+
+        # Výběr loga
+        self.current_logo_path = profile.logo_path if profile and profile.logo_path else ""
+        logo_row = ctk.CTkFrame(self.detail_container, fg_color="transparent")
+        logo_row.pack(fill="x", padx=20, pady=2)
+        ctk.CTkLabel(logo_row, text="Logo:", width=120, anchor="w").pack(side="left")
+        
+        status_text = f"Vybráno: {os.path.basename(self.current_logo_path)}" if self.current_logo_path else "Není vybráno"
+        self.logo_status_label = ctk.CTkLabel(logo_row, text=status_text, text_color="white" if self.current_logo_path else "gray")
+        self.logo_status_label.pack(side="left", padx=10)
+        
+        btn_frame = ctk.CTkFrame(logo_row, fg_color="transparent")
+        btn_frame.pack(side="right")
+        
+        ctk.CTkButton(btn_frame, text="Vybrat...", width=80, height=24, command=self._browse_logo).pack(side="left")
+        self.clear_logo_btn = ctk.CTkButton(btn_frame, text="✖", width=28, height=24, fg_color="#721c24", hover_color="#a71d2a", command=self._clear_logo)
+        if self.current_logo_path:
+            self.clear_logo_btn.pack(side="left", padx=(5, 0))
 
         # --- SEKCE 2: PŘÍJEMCE ---
         self._add_section_label(f"PŘÍJEMCE (Klient: {client.name})")
@@ -90,20 +117,18 @@ class ClientsFrame(ctk.CTkFrame):
         date_frame.pack(fill="x", padx=20, pady=10)
 
         # OD:
-        ctk.CTkLabel(date_frame, text="Od:").grid(row=0, column=0, padx=5)
+        ctk.CTkLabel(date_frame, text="(DD.MM.RRRR): Od").grid(row=0, column=0, padx=5)
         self.date_from = ctk.CTkEntry(date_frame, width=120)
         self.date_from.insert(0, first_last_month.strftime("%d.%m.%Y"))
         self.date_from.grid(row=0, column=1, padx=5)
-        # BINDING: Při Enteru nebo kliknutí vedle se spustí update
         self.date_from.bind("<Return>", self.update_project_hours)
         self.date_from.bind("<FocusOut>", self.update_project_hours)
 
         # DO:
-        ctk.CTkLabel(date_frame, text="Do:").grid(row=0, column=2, padx=5)
+        ctk.CTkLabel(date_frame, text="Do").grid(row=0, column=2, padx=5)
         self.date_to = ctk.CTkEntry(date_frame, width=120)
         self.date_to.insert(0, last_last_month.strftime("%d.%m.%Y"))
         self.date_to.grid(row=0, column=3, padx=5)
-        # BINDING:
         self.date_to.bind("<Return>", self.update_project_hours)
         self.date_to.bind("<FocusOut>", self.update_project_hours)
 
@@ -115,8 +140,8 @@ class ClientsFrame(ctk.CTkFrame):
         self.proj_list_container.pack(fill="x", padx=20, pady=10)
 
         self.project_vars = {}
-        self.project_hour_labels = {} # TADY si uložíme ty štítky pro pozdější update
-        self.project_rate_entries = {} # Pro ukládání hodinové sazby
+        self.project_hour_labels = {}
+        self.project_rate_entries = {}
 
         for p in projects:
             row = ctk.CTkFrame(self.proj_list_container, fg_color="transparent")
@@ -128,7 +153,6 @@ class ClientsFrame(ctk.CTkFrame):
             cb = ctk.CTkCheckBox(row, text=f"{p.name}", variable=var, font=("Arial", 12))
             cb.pack(side="left", padx=10, pady=5)
             
-            # Vytvoříme label a uložíme si ho do slovníku pod ID projektu
             hrs_label = ctk.CTkLabel(row, text="-- h", text_color="gray")
             hrs_label.pack(side="right", padx=10)
             self.project_hour_labels[p.id] = hrs_label
@@ -167,6 +191,21 @@ class ClientsFrame(ctk.CTkFrame):
             entries[key] = entry
         return entries
 
+    def _browse_logo(self):
+        path = filedialog.askopenfilename(
+            title="Vyberte logo",
+            filetypes=[("Obrázky", "*.png *.jpg *.jpeg")]
+        )
+        if path:
+            self.current_logo_path = path
+            self.logo_status_label.configure(text=f"Vybráno: {os.path.basename(path)}", text_color="white")
+            self.clear_logo_btn.pack(side="left", padx=(5, 0))
+            
+    def _clear_logo(self):
+        self.current_logo_path = ""
+        self.logo_status_label.configure(text="Není vybráno", text_color="gray")
+        self.clear_logo_btn.pack_forget()
+
     def _save_project_rates(self, session):
         """Pomocná metoda pro uložení hodinových sazeb z formuláře."""
         for pid, entry in self.project_rate_entries.items():
@@ -175,7 +214,6 @@ class ClientsFrame(ctk.CTkFrame):
                 rate_val = 0.0
             else:
                 try:
-                    # Podpora pro českou čárku v desetinném čísle
                     val_str = val_str.replace(',', '.')
                     rate_val = float(val_str)
                 except ValueError:
@@ -197,6 +235,7 @@ class ClientsFrame(ctk.CTkFrame):
         profile.ico = self.sender_entries["ico"].get()
         profile.dic = self.sender_entries["dic"].get()
         profile.bank_account = self.sender_entries["bank"].get()
+        profile.logo_path = self.current_logo_path
 
         client = session.get(Client, self.selected_client_id)
         if client:
@@ -243,12 +282,12 @@ class ClientsFrame(ctk.CTkFrame):
                 label.configure(text=f"{hrs:.1f} h")
                 
         except ValueError:
-            # Pokud uživatel zrovna píše nesmysly, nic neděláme a nepadáme
+            # Kdyby invalid input
             pass
 
     def generate_invoice(self):
         try:
-            # Nejdříve uložíme VEŠKERÁ DATA (profily i sazby), aby se projevila ve faktuře
+            # Nejdříve uložíme VEŠKERÁ DATA (profily i sazby)
             with self.aggregator.db.Session() as session:
                 self._save_form_data(session)
                 session.commit()
@@ -258,8 +297,7 @@ class ClientsFrame(ctk.CTkFrame):
                 profile = session.execute(select(BillingProfile)).scalar_one_or_none()
                 client = session.get(Client, self.selected_client_id)
                 
-                # Pokud profil nebo klient v DB chybí, nebo nemají ani jméno,
-                # znamená to, že uživatel ještě neuložil vyplněný formulář.
+                # Pokud profil nebo klient v DB chybí
                 if not profile or not profile.name or not client or not client.name:
                     messagebox.showerror(
                         "Chybějící údaje",
@@ -277,10 +315,18 @@ class ClientsFrame(ctk.CTkFrame):
 
             data = self.aggregator.get_invoice_data(selected_ids, d_from, d_to)
             gen = InvoiceGenerator(data)
-            filename = f"Faktura_{data['recipient']['name']}_{date.today().strftime('%Y%m%d')}.pdf"
-            gen.generate(filename)
             
-            messagebox.showinfo("Úspěch", f"Faktura s {len(data['jobs'])} projekty vytvořena.")
+            default_filename = f"Faktura_{data['recipient']['name']}_{date.today().strftime('%Y%m%d')}.pdf"
+            save_path = filedialog.asksaveasfilename(
+                defaultextension=".pdf",
+                initialfile=default_filename,
+                title="Uložit fakturu jako",
+                filetypes=[("PDF dokument", "*.pdf")]
+            )
+            
+            if save_path:
+                gen.generate(save_path)
+                messagebox.showinfo("Úspěch", f"Faktura s {len(data['jobs'])} projekty uložena do:\n{save_path}")
         except ValueError:
             messagebox.showerror("Chyba", "Špatný formát data. Použijte DD.MM.RRRR")
         except Exception as e:

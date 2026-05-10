@@ -1,4 +1,3 @@
-import os
 from typing import Optional
 
 from sqlalchemy import create_engine, select
@@ -18,7 +17,6 @@ class DatabaseManager:
         final_url = db_url if db_url else self.settings.DB_URL
         self.engine = create_engine(final_url)
 
-        # TENTO BLOK zapne hlídání cizích klíčů v SQLite
         @event.listens_for(self.engine, "connect")
         def set_sqlite_pragma(dbapi_connection, connection_record):
             cursor = dbapi_connection.cursor()
@@ -44,7 +42,6 @@ class DatabaseManager:
         ).scalar_one_or_none()
         
         if not project:
-            # Tady je kouzlo: přiřadíme přímo objekt 'client'
             project = Project(name=project_name, client=client)
             session.add(project)
             
@@ -61,11 +58,11 @@ class DatabaseManager:
 
             if last_entry:
                 is_same_project = last_entry.project_id == project_obj.id
-                # Použijeme MAX_GAP_FOR_MERGE (např. 120s) pro spojování logů
+                # MAX_GAP_FOR_MERGE (např. 120s) pro spojování logů
                 time_diff = (now - last_entry.end_time).total_seconds()
                 
                 if is_same_project and time_diff < self.settings.MAX_GAP_FOR_MERGE:
-                    # PRODLOUŽENÍ: Jen posuneme konec
+                    # PRODLOUŽENÍ:
                     last_entry.end_time = now
                     # Titulek updatujeme jen pokud máme reálné info (nejsme v Grace Period)
                     if window_title != "Grace Period":
@@ -77,7 +74,7 @@ class DatabaseManager:
             # NOVÝ ZÁZNAM: Pokud je to jiný projekt nebo moc velká pauza
             new_entry = ActivityLog(
                 project=project_obj,
-                start_time=now, # Začínáme teď, žádné vracení do minulosti
+                start_time=now,
                 end_time=now,
                 window_title=window_title,
                 executable=executable
@@ -91,7 +88,7 @@ class DatabaseManager:
             stmt = select(ActivityLog.end_time).order_by(ActivityLog.id.desc()).limit(1)
             return session.execute(stmt).scalar_one_or_none()
         
-# Pro editaci logů z GUI
+    # Pro editaci logů z GUI
     def update_activity_log(self, log_id, new_start, new_end):
         """Aktualizuje svůj záznam v DB."""
         with self.Session() as session:

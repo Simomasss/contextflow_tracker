@@ -19,7 +19,7 @@ def setup_logging():
     file_handler = RotatingFileHandler(log_path, maxBytes=5*1024*1024, backupCount=1, encoding='utf-8')
     file_handler.setFormatter(log_format)
 
-    # 2. Handler pro výstup do konzole (to, co vidíš teď)
+    # 2. Handler pro výstup do konzole
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(log_format)
 

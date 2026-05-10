@@ -12,7 +12,6 @@ class EditLogDialog(ctk.CTkToplevel):
         self.db = db
         self.on_save = on_save_callback
 
-        # Aby okno zůstalo v popředí a blokovalo interakci s hlavním oknem (volitelné)
         self.attributes("-topmost", True)
         self.grab_set() 
 
@@ -39,7 +38,6 @@ class EditLogDialog(ctk.CTkToplevel):
 
     def save_action(self):
         try:
-            # Převedeme text zpět na časové objekty (předpokládáme stejný den)
             base_date = self.log.start_time.date()
             new_start = datetime.combine(base_date, datetime.strptime(self.start_entry.get(), "%H:%M:%S").time())
             new_end = datetime.combine(base_date, datetime.strptime(self.end_entry.get(), "%H:%M:%S").time())
@@ -48,9 +46,8 @@ class EditLogDialog(ctk.CTkToplevel):
                 messagebox.showerror("Chyba", "Konec musí být až po začátku!")
                 return
 
-            # Voláme DB Handler
             if self.db.update_activity_log(self.log.id, new_start, new_end):
-                self.on_save() # Zavolá refresh_data v HomeFrame
+                self.on_save()
                 self.destroy()
         except Exception as e:
             messagebox.showerror("Chyba", "Neplatný formát času (použij HH:MM:SS)")

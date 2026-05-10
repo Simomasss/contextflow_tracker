@@ -1,7 +1,6 @@
 import threading
 import time
-from tkinter import filedialog, messagebox
-import tkinter
+from tkinter import messagebox
 import winreg
 import pystray
 from PIL import Image
@@ -11,7 +10,6 @@ import customtkinter as ctk
 from src.utils.logger_config import setup_logging
 import logging
 
-# TENTO BLOK MUSÍ BÝT CO NEJVÝŠE:
 if getattr(sys, 'frozen', False):
     # Pokud běžíme jako EXE, nastavíme pracovní adresář na složku s EXE
     os.chdir(os.path.dirname(sys.executable))
@@ -29,7 +27,7 @@ from src.gui.app import ContextFlowGUI
 
 def resource_path(relative_path):
     """ Pomocná funkce pro získání absolutní cesty k prostředkům (pro PyInstaller) """
-    # getattr bezpečně zkontroluje, jestli _MEIPASS existuje, jinak použije aktuální složku
+    # getattr  zkontroluje, jestli _MEIPASS existuje, jinak použije aktuální složku
     base_path = getattr(sys, '_MEIPASS', os.path.abspath("."))
     return os.path.join(base_path, relative_path)
 
@@ -53,7 +51,7 @@ class ContextFlowLauncher:
         self.engine = ContextEngine(self.watcher, self.indexer, self.db, afk_watcher=self.afk, settings=self.settings)
 
         
-        # 2. VYTVOŘÍME GUI HNED (ale zatím ho nezobrazíme)
+        # 2. VYTVOŘÍME GUI HNED (ale nezobrazíme)
         self.icon_path = resource_path("src/gui/assets/icon.ico")
         self.gui = ContextFlowGUI(launcher=self)
         self.gui.withdraw() # Skryje okno
@@ -67,11 +65,9 @@ class ContextFlowLauncher:
 
         # 3. NASTAVENÍ TRAY IKONKY
         try:
-            # PIL umí otevřít .ico a vybrat z něj nejlepší rozlišení
             tray_img = Image.open(self.icon_path)
         except Exception as e:
             logging.info(f"Ikonku v {self.icon_path} se nepodařilo načíst: {e}")
-            # Fallback na ten tvůj modrý čtverec, kdyby ikonka chyběla
             tray_img = Image.new('RGB', (64, 64), color=(31, 83, 141))
 
         self.icon = pystray.Icon("ContextFlow", tray_img, "ContextFlow", menu=pystray.Menu(
@@ -80,7 +76,6 @@ class ContextFlowLauncher:
         ))
 
     def show_gui(self, icon=None, item=None):
-        # Používáme after(), aby se deiconify zavolalo v hlavním vlákně GUI
         self.gui.after(0, self.gui.deiconify)
         self.gui.after(0, self.gui.focus_force)
 
@@ -110,7 +105,6 @@ class ContextFlowLauncher:
         self.add_to_startup()
 
         # D. GUI MAINLOOP V HLAVNÍM VLÁKNĚ
-        # Tohle musí být poslední řádek, který "drží" aplikaci naživu
         logging.info("✓ ContextFlow běží. GUI v hlavním vlákně, Tray ve vedlejším.")
         logging.info(self.indexer.lookup_map) # Pro debugování indexu při startu
         self.gui.mainloop()
@@ -132,8 +126,6 @@ class ContextFlowLauncher:
         # 3. Počkáme zlomek sekundy, aby mainloop v start() mohl skončit
         # a pak teprve násilně ukončíme proces
         threading.Timer(0.2, lambda: os._exit(0)).start()
-        # Důležité: Commit a zavření DB spojení
-        # Pokud tvůj db_handler má metodu close(), zavolej ji tady
         
         logging.info("Všechna data uložena. Nashledanou.")
         os._exit(0)
@@ -151,7 +143,6 @@ class ContextFlowLauncher:
 
         if selected_path:
             self.settings.MAIN_FOLDER = selected_path[0]
-            # Defaultní whitelist, aby to hned fungovalo
             if not self.settings.WHITELIST:
                 self.settings.WHITELIST = ["code.exe", "pycharm64.exe", "notepad++.exe"]
             self.settings.save()
@@ -162,7 +153,6 @@ class ContextFlowLauncher:
     def add_to_startup(self):
         """Přidá aktuální EXE do registru pro start po zapnutí PC."""
         if getattr(sys, 'frozen', False):
-            # Cesta k běžícímu .exe souboru
             app_path = sys.executable
             key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
             try:
@@ -173,7 +163,6 @@ class ContextFlowLauncher:
             except Exception as e:
                 logging.info(f"Nepodařilo se zapsat do registru: {e}")
 
-#TODO: Zmena nastavení za behu  
     def apply_settings(self):
         """Tato metoda se volá z GUI. Jen spustí vlákno a hned vrátí řízení GUI."""
         if self.restart_lock.locked():
@@ -192,12 +181,9 @@ class ContextFlowLauncher:
                 if hasattr(self, 'fw'):
                     self.fw.stop()
                 
-                # KRITICKÝ KROK: Počkáme chvíli, než stará vlákna doopravdy skončí
-                # Tím zmizí ti "duchové" a nepravidelné ticky
                 time.sleep(1)
 
                 # 2. Reinicializace komponent
-                # Vytvoříme nové instance s čerstvými daty ze settings
                 self.watcher = WindowWatcher(self.settings.WHITELIST)
                 self.indexer = IndexManager(self.settings.MAIN_FOLDER)
                 self.fw = FileWatcher(self.indexer)
@@ -226,7 +212,7 @@ class ContextFlowLauncher:
                 self.gui.after(0, lambda: messagebox.showerror("Chyba", f"Restart selhal: {e}"))
 
 if __name__ == "__main__":
-    setup_logging() # Teď už všechno, co logujeme, půjde do souboru
+    setup_logging() # Log > soubor
     try:
         launcher = ContextFlowLauncher()
         launcher.start()

@@ -1,6 +1,5 @@
 from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Optional
 
 class WindowInfo(BaseModel):
     """Informace zachycené z operačního systému."""

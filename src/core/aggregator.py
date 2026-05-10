@@ -13,8 +13,8 @@ class ActivityAggregator:
             stmt = (
                 select(ActivityLog)
                 .options(
-                    joinedload(ActivityLog.project)   # 1. Načti projekt k logu
-                    .joinedload(Project.client)       # 2. Načti klienta k tomu projektu (řetězení!)
+                    joinedload(ActivityLog.project)   # 1. Načíst projekt
+                    .joinedload(Project.client)       # 2. Načíst klienta
                 )
                 .where(
                     ActivityLog.start_time <= end_time,
@@ -26,11 +26,10 @@ class ActivityAggregator:
     def get_summary_for_billing(self, project_id: int, start_date: datetime, end_date: datetime):
         """Vrátí data připravená přímo pro fakturu."""
         with self.db.Session() as session:
-            # 1. Získáme projekt a profil (kvůli sazbě a zaokrouhlování)
+            # 1. Získáme projekt a profil
             project = session.get(Project, project_id)
             profile = session.execute(select(BillingProfile)).scalar_one_or_none()
             rounding = profile.rounding_minutes if profile else 15
-            # TODO: Error handling, kdyby nebyl projekt
 
             # 2. Sečteme sekundy
             stmt = select(ActivityLog.start_time, ActivityLog.end_time).where(
@@ -48,7 +47,6 @@ class ActivityAggregator:
             
             # 3. Logika zaokrouhlování
             total_minutes = total_seconds / 60
-            # Zaokrouhlení nahoru na nejbližší blok (např. 15 min)
             rounded_minutes = ((total_minutes + rounding - 1) // rounding) * rounding
             rounded_hours = rounded_minutes / 60
 
@@ -61,23 +59,6 @@ class ActivityAggregator:
                 "total_price": rounded_hours * (project.hourly_rate or 0),
                 "currency": project.currency
             }
-
-    def get_daily_stats(self, target_date: date): 
-        """Data pro Dashboard - kolik času na každém projektu za den."""
-        start = datetime.combine(target_date, datetime.min.time())
-        end = datetime.combine(target_date, datetime.max.time())
-        
-        logs = self.get_raw_logs(start, end)
-        stats = {} # { "Projekt A": sekundy }
-        
-        for log in logs:
-            name = log.project.name
-            actual_start = max(log.start_time, start)
-            actual_end = min(log.end_time, end)
-            duration = (actual_end - actual_start).total_seconds()
-            stats[name] = stats.get(name, 0) + duration
-            
-        return stats
     
     def get_daily_stats_v2(self, target_date: date):
         """Vrátí strukturovaná data: {Klient: {Projekt: sekundy}}"""
@@ -85,7 +66,6 @@ class ActivityAggregator:
             start_dt = datetime.combine(target_date, datetime.min.time())
             end_dt = datetime.combine(target_date, datetime.max.time())
             
-            # Tady také přidáme joinedload, abychom měli klienta k dispozici
             stmt = (
                 select(ActivityLog)
                 .options(joinedload(ActivityLog.project).joinedload(Project.client))
@@ -144,7 +124,8 @@ class ActivityAggregator:
                     "address": profile.address if profile and profile.address else "...", 
                     "ico": profile.ico if profile and profile.ico else "...", 
                     "dic": profile.dic if profile and profile.dic else "...", 
-                    "bank_account": profile.bank_account if profile and profile.bank_account else "..." 
+                    "bank_account": profile.bank_account if profile and profile.bank_account else "...",
+                    "logo_path": profile.logo_path if profile and profile.logo_path else None
                 },
                 "recipient": { "name": client.name, "address": client.address or "...", "ico": client.ico or "...", "dic": client.dic or "...", "email": client.email or "..." },
                 "period": f"{start_date.strftime('%d.%m.%Y')} - {end_date.strftime('%d.%m.%Y')}",
@@ -157,11 +138,10 @@ class ActivityAggregator:
     def get_all_clients_summary(self):
         """Vrátí seznam všech klientů a jejich celkový čas v sekundách."""
         with self.db.Session() as session:
-            # Načteme klienty i s jejich projekty, ALE BEZ LOGŮ (ušetříme obrovské množství paměti)
+            # Načteme klienty i s jejich projekty, BEZ LOGŮ 
             stmt = select(Client).options(joinedload(Client.projects))
             clients = session.execute(stmt).unique().scalars().all()
             
-            # Získáme jen sloupce potřebné pro výpočet u všech logů najednou (lehké tuples, žádné ORM objekty)
             logs_stmt = select(ActivityLog.project_id, ActivityLog.start_time, ActivityLog.end_time)
             all_logs = session.execute(logs_stmt).all()
             
@@ -184,11 +164,9 @@ class ActivityAggregator:
     def get_project_hours(self, project_id: int, start_date: date, end_date: date) -> float:
         """Vrátí celkový počet hodin pro daný projekt v daném období."""
         with self.db.Session() as session:
-            # Převedeme date na datetime pro porovnání v DB
             start_dt = datetime.combine(start_date, datetime.min.time())
             end_dt = datetime.combine(end_date, datetime.max.time())
             
-            # Optimalizace: Nenačítáme celé objekty ActivityLog, dotazujeme se pouze na sloupce s časem
             stmt = (
                 select(ActivityLog.start_time, ActivityLog.end_time)
                 .where(
@@ -205,4 +183,4 @@ class ActivityAggregator:
                 actual_end = min(end, end_dt)
                 total_seconds += (actual_end - actual_start).total_seconds()
                 
-            return total_seconds / 3600  # Převod na hodiny
+            return total_seconds / 3600 

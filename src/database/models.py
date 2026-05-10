@@ -7,7 +7,7 @@ class Base(DeclarativeBase):
     """Základní třída pro všechny naše budoucí tabulky."""
     pass
 
-# Všechno je mapped_column, kvuli pylance type sledovani
+# Všechno je mapped_column, kvuli pylance type checker
 class Client(Base):
     __tablename__ = 'clients'
     id: Mapped[int] = mapped_column(primary_key=True) 

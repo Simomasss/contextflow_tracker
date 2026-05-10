@@ -1,5 +1,4 @@
 import logging
-
 from fpdf import FPDF
 import os
 
@@ -10,7 +9,7 @@ class InvoiceGenerator:
         self.pdf.add_page()
         
         #TODO: Tady bych mohl přidat možnost nastavit jazyk a podle toho načítat fonty, aby to fungovalo i mimo Windows
-        # Načtení systémového fontu Windows (Arial) pro plnou podporu češtiny
+        #TODO: Upravit at vypada profesionalne, zatim jen zaklad
         try:
             self.pdf.add_font('ArialCZ', '', r'C:\Windows\Fonts\arial.ttf')
             self.pdf.add_font('ArialCZ', 'B', r'C:\Windows\Fonts\arialbd.ttf')
@@ -30,7 +29,7 @@ class InvoiceGenerator:
         self.pdf.set_font(self.base_font, 'B', 16)
         self.pdf.cell(0, 10, "FAKTURA - DAŇOVÝ DOKLAD", new_x="LMARGIN", new_y="NEXT", align='R')
         self.pdf.ln(10)
-        # --- TADY PŘIDÁME OBDOBÍ ---
+        # --- OBDOBÍ ---
         self.pdf.set_font(self.base_font, '', 10)
         self.pdf.cell(0, 10, f"Fakturační období: {self.data['period']}", new_x="LMARGIN", new_y="NEXT", align='R')
         self.pdf.ln(5)
@@ -42,7 +41,6 @@ class InvoiceGenerator:
         
         self.pdf.set_font(self.base_font, size=10)
         y_start = self.pdf.get_y()
-        # Multi_cell už defaultně odřádkovává, tam ln/new_x obvykle netřeba řešit tak striktně
         self.pdf.multi_cell(95, 5, f"{self.data['sender']['name']}\n{self.data['sender']['address']}\nIČO: {self.data['sender']['ico']}\nDIČ: {self.data['sender']['dic']}")
         
         self.pdf.set_xy(105, y_start)
@@ -72,7 +70,7 @@ class InvoiceGenerator:
         
         self.pdf.ln(10)
 
-        # 5. REKAPITULACE (Z grand_total)
+        # 5. REKAPITULACE
         self.pdf.set_font(self.base_font, 'B', 12)
         self.pdf.cell(160, 10, "CELKEM K ÚHRADĚ:", align='R', new_x="RIGHT", new_y="TOP")
         self.pdf.set_text_color(255, 0, 0)
@@ -80,5 +78,3 @@ class InvoiceGenerator:
         # Export
         self.pdf.output(output_path)
         logging.info(f"✓ PDF Faktura vytvořena: {output_path}")
-
-        # TODO: Upravit to pdf at to vypada profesionalne, zatim jen zaklad

@@ -4,14 +4,14 @@ import re
 from typing import Dict, Optional
 
 class IndexManager:
-    # TODO: Přidat do configu
+    # TODO: Přidat do configu?
     IGNORED_DIR_NAMES = {
-        '.git', '.svn', '.hg',              # Verzování
-        'node_modules', 'venv', '.venv',    # Závislosti
-        '__pycache__', '.pytest_cache',     # Python balast
-        '.vscode', '.idea',                 # IDE
-        'dist', 'build', 'target',          # Build složky
-        'bin', 'obj', 'log'                        # Binární výstupy
+        '.git', '.svn', '.hg',
+        'node_modules', 'venv', '.venv',
+        '__pycache__', '.pytest_cache',
+        '.vscode', '.idea',
+        'dist', 'build', 'target',
+        'bin', 'obj', 'log'
     }
     
     def __init__(self, root_path: str):
@@ -25,12 +25,10 @@ class IndexManager:
         new_map = {}
         
         for client_dir in self.root_path.iterdir():
-            # Ignorujeme skryté složky klientů (začínající tečkou)
             if not client_dir.is_dir() or client_dir.name.startswith('.'):
                 continue
             
             for project_dir in client_dir.iterdir():
-                # KLÍČOVÝ FIX: Ignorujeme skryté složky projektů (.git, .venv) hned tady
                 if not project_dir.is_dir() or project_dir.name.startswith('.') or project_dir.name in self.IGNORED_DIR_NAMES:
                     continue
                 
@@ -61,22 +59,17 @@ class IndexManager:
             return None
             
         title_lower = window_title.lower()
-        # Explicitně řekneme, že jde o seznam slovníků
         best_match_projects: list[dict] = []
         max_key_len = 0
 
         # 1. Najdeme kandidáty (Regex + délka)
         for key, projects in self.lookup_map.items():
-            # Regex pro hranice slov (řeší 'Ružu')
             pattern = r"\b" + re.escape(key) + r"\b"
             if re.search(pattern, title_lower):
                 if len(key) > max_key_len:
                     max_key_len = len(key)
-                    # FIX: Vytvoříme NOVÝ seznam, aby extend neházal chybu
-                    # a abychom si neupravili lookup_map
                     best_match_projects = list(projects) 
                 elif len(key) == max_key_len and max_key_len > 0:
-                    # Tady už extend funguje, protože best_match_projects je zaručeně list
                     best_match_projects.extend(projects)
 
         if not best_match_projects:

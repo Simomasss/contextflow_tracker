@@ -5,7 +5,6 @@ import threading
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-from ..core.indexer import IndexManager
 
 class IndexUpdateHandler(FileSystemEventHandler):
     """Reaguje na změny v souborovém systému s využitím debouncingu."""
@@ -15,11 +14,8 @@ class IndexUpdateHandler(FileSystemEventHandler):
         self.timer = None
 
     def on_any_event(self, event):
-        # 1. Získáme cestu a vynutíme, aby to byl string
         raw_path = event.src_path
         
-        # Type Guard: Pokud to nejsou čistá písmenka, převedeme je na ně.
-        # Tímto zmizí error "Argument of type str | bytearray..."
         if isinstance(raw_path, (bytes, bytearray)):
             clean_path = raw_path.decode('utf-8', errors='replace')
         else:
@@ -27,16 +23,15 @@ class IndexUpdateHandler(FileSystemEventHandler):
 
         path = Path(clean_path)
         
-        # 1. FILTR: Totální ignorace čehokoliv, co má v názvu "contextflow"
-        # Tím odstřihneme logy, DB i celou složku trackeru
+        # 1. FILTR: Ignorujeme contextflow
         if "contextflow" in path.name.lower():
             return
 
-        # 2. FILTR: Ignorujeme vnitřní balast (zůstává pro jistotu)
+        # 2. FILTR: Ignorujeme vnitřní soubory
         if path.suffix in ['.log', '.db', '.json']:
             return
 
-        # 3. FILTR: Ignorujeme skryté složky (.git atd.)
+        # 3. FILTR: Ignorujeme skryté složky
         if any(part.startswith('.') for part in path.parts):
             return
 

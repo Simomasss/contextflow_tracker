@@ -7,7 +7,7 @@ from typing import List
 
 @dataclass
 class AppSettings:
-    # --- VÝCHOZÍ HODNOTY (Defaults) ---
+    # --- VÝCHOZÍ HODNOTY  ---
     MAIN_FOLDER: str = "C:/Users/Doplnte/vasi/pracovni/slozku"
     WHITELIST: List[str] = field(default_factory=lambda: ["Code.exe", "WINWORD.EXE", "Excel.exe", "chrome.exe", "msedge.exe", "powerpnt.exe", "rstudio.exe"])
     ENTRY_MINUTES: float = 1.0
@@ -29,7 +29,6 @@ class AppSettings:
 
         self.config_path = os.path.join(application_path, "settings.json")
         
-        # FIX: Předání ABSOLUTNÍ cesty pro vyřešení problému startupu!
         if not os.path.exists(self.config_path):
             logging.info(f"Vytvářím výchozí json soubor v: {self.config_path}")
             self.save(self.config_path)
@@ -71,7 +70,7 @@ class AppSettings:
             # Převedeme dataclass na slovník, ale vynecháme @property
             json.dump(asdict(self), f, indent=4)
 
-    # --- ODVOZENÉ PROMĚNNÉ (Properties zůstávají stejné) ---
+    # --- ODVOZENÉ PROMĚNNÉ ---
     @property
     def CONFIRM_START_TICKS(self) -> int:
         ticks = (self.ENTRY_MINUTES * 60) / self.TICK_INTERVAL

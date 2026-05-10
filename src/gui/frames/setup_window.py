@@ -12,12 +12,11 @@ class SetupWindow(ctk.CTk):
     def __init__(self, on_folder_select):
         super().__init__()
         self.title("ContextFlow - Průvodce nastavením")
-        self.geometry("800x700") # Trochu širší kvůli obrázku
+        self.geometry("800x700") 
         self.on_folder_select = on_folder_select
 
-        # Způsobí, že se okno ukáže na liště jako samostatné
         self.after(10, lambda: self.state("normal")) 
-        self.attributes("-topmost", True) # Aby nezapadlo za hlavní (skryté) okno
+        self.attributes("-topmost", True)
         
         # Ikona okna
         try:
@@ -57,7 +56,6 @@ class SetupWindow(ctk.CTk):
         # Obrázek struktury
         try:
             img_path = resource_path("src/gui/assets/setup_folder.png")
-            # CTkImage automaticky řeší scaling
             setup_img = ctk.CTkImage(light_image=Image.open(img_path), 
                                      dark_image=Image.open(img_path), 
                                      size=(700, 352))
@@ -107,7 +105,7 @@ class SetupWindow(ctk.CTk):
         )
         ctk.CTkLabel(self.main_container, text=final_info, font=("Arial", 15), justify="center").pack(pady=20)
 
-        # Hlavní akční tlačítko
+        # Hlavní tlačítko
         ctk.CTkButton(self.main_container, text="VYBRAT SLOŽKU A ZAČÍT", 
                        command=self.select_folder, height=60, font=("Arial", 16, "bold"),
                        fg_color="#28a745", hover_color="#218838").pack(pady=40)
@@ -137,5 +135,4 @@ class SetupWindow(ctk.CTk):
         path = filedialog.askdirectory(title="Vyberte vaši hlavní složku projektů (MAIN)")
         if path:
             self.on_folder_select(path)
-            # Tady stačí jen destroy, master (hlavní GUI) zůstane žít
             self.destroy()

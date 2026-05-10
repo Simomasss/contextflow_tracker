@@ -1,5 +1,4 @@
 import logging
-import time
 import threading
 from datetime import datetime
 from typing import Optional
@@ -26,9 +25,9 @@ class ContextEngine:
         self.afk_watcher = afk_watcher
         self.settings = settings
 
-        self.current_activity: Optional[ContextMatch] = None # Aktuálně sledovaný projekt (ten, ke kterému logujeme čas)
-        self.pending_activity: Optional[ContextMatch] = None # Projekt, který se "rýsuje" jako nový, ale ještě nemáme potvrzeno, že tam opravdu jsme
-        self.timer = 0 # Počítadlo ticků pro potvrzení změny
+        self.current_activity: Optional[ContextMatch] = None # Aktuálně sledovaný projekt
+        self.pending_activity: Optional[ContextMatch] = None # Možná nový kontext, který čeká na potvrzení
+        self.timer = 0 
 
         self._stop_event = threading.Event()
         self.is_running = False
@@ -40,7 +39,7 @@ class ContextEngine:
         try:
             while self.is_running:
                 self._tick()
-                self._stop_event.wait(self.settings.TICK_INTERVAL) # Reaguje okamžitě na self.stop()
+                self._stop_event.wait(self.settings.TICK_INTERVAL)
         except KeyboardInterrupt:
             self.stop()
     
@@ -67,7 +66,7 @@ class ContextEngine:
         
         # --- A. AFK KONTROLA ---
         if self.afk_watcher.watch():
-            # Logujeme jen pokud jsme v tu chvíli něco dělali (měli jsme rozjetý timer nebo aktivitu)
+            # Logujeme jen pokud jsme nejsme AFK
             if self.current_activity or self.timer > 0:
                 status = f"relaci {self.current_activity.project_name}" if self.current_activity else "čekání na potvrzení"
                 logging.info(f"[{now_str}] [AFK] Detekován klid. Ruším {status}.")
@@ -89,7 +88,6 @@ class ContextEngine:
                 new_match = ContextMatch(client_name=match_dict['client'], project_name=match_dict['project'])
                 logging.info(f"[MATCH] '{window.title}'") # ({window.executable}) -> [KLIENT]: {new_match.client_name} [PROJEKT]: {new_match.project_name}
         else:
-            # window je None, logování nebo match nemá smysl
             match_dict = None
             new_match = None
 
@@ -105,21 +103,21 @@ class ContextEngine:
 
         # --- D. LOGIKA RESETOVÁNÍ TIMERU (Klíčová změna) ---
         if self.current_activity is None:
-            # Režim START: Pokud nic neděláme, každá změna okna musí resetovat timer, 
+            # Režim START:
+            # Pokud nic neděláme, každá změna okna musí resetovat timer, 
             # abychom potvrdili, že na tom novém okně fakt jsme (např. 1 minutu).
             if new_match != self.pending_activity:
                 logging.info(f"[{now_str}] [IDLE] Změna cíle na: {new_match.project_name if new_match else 'NIC'}. Reset timeru.")
                 self.timer = 0
                 self.pending_activity = new_match
         else:
-            # Režim EXIT: Tady je ta změna! Timer NERESETUJEME při změnách mezi okny,
-            # pokud jsme mimo hlavní projekt. Jen si poznamenáme, co je "pending", 
+            # Režim EXIT:
+            # Pokud jsme mimo hlavní projekt. Jen si poznamenáme, co je "pending", 
             # aby SWITCH věděl, kam pak případně skočit.
             if new_match != self.pending_activity:
                 logging.info(f"[{now_str}] [INFO] Změna aktivity během exitu: {self.pending_activity.project_name if self.pending_activity else 'GRACE'} -> {new_match.project_name if new_match else 'GRACE'}")
                 self.pending_activity = new_match
-                # TIMER TADY NESMÍ BÝT RESETOVÁN NA 0! 
-                # Chceme, aby celkový čas mimo hlavní práci prostě běžel dál.
+                # TIMER TADY NESMÍ BÝT RESETOVÁN NA 0
 
         # Inkrementace timeru (společná pro oba režimy)
         self.timer += 1
@@ -130,7 +128,7 @@ class ContextEngine:
         # --- F. ČEKACÍ LHŮTA (Vykreslování stavu) ---
         if self.timer < limit:
             if self.current_activity:
-                # Jsme v režimu ochrany (Grace/Inspirace)
+                # Režim OCHRANY (Grace/Inspirace)
                 reason = "INSPIRACE" if new_match else "GRACE"
                 logging.info(f"[{now_str}] [{reason}] {self.timer}/{limit} | Stále držím: {self.current_activity.project_name}")
                 
@@ -153,7 +151,7 @@ class ContextEngine:
                     logging.info(f"[{now_str}] [STOP] Čas vypršel. Uživatel definitivně opustil kontext.")
                 self.current_activity = None
             
-            # Kompletní úklid po akci
+            # Kompletní úklid
             self.timer = 0
             self.pending_activity = None
 
