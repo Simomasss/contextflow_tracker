@@ -7,4 +7,4 @@
     "AFK_THRESHOLD": 300,
     "DB_URL": "sqlite:///contextflow.db"
 }
-Poté to přejmenuj na settings.json a jsi ready!
+Poté to přejmenuj na settings.json a je to připraveno!

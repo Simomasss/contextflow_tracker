@@ -17,8 +17,8 @@ class ActivityAggregator:
                     .joinedload(Project.client)       # 2. Načti klienta k tomu projektu (řetězení!)
                 )
                 .where(
-                    ActivityLog.start_time >= start_time,
-                    ActivityLog.end_time <= end_time
+                    ActivityLog.start_time <= end_time,
+                    ActivityLog.end_time >= start_time
                 )
             )
             return session.execute(stmt).scalars().all()
@@ -35,11 +35,16 @@ class ActivityAggregator:
             # 2. Sečteme sekundy
             stmt = select(ActivityLog.start_time, ActivityLog.end_time).where(
                 ActivityLog.project_id == project_id,
-                ActivityLog.start_time >= start_date,
-                ActivityLog.end_time <= end_date
+                ActivityLog.start_time <= end_date,
+                ActivityLog.end_time >= start_date
             )
             project_logs = session.execute(stmt).all()
-            total_seconds = sum((end - start).total_seconds() for start, end in project_logs)
+            
+            total_seconds = 0
+            for start, end in project_logs:
+                actual_start = max(start, start_date)
+                actual_end = min(end, end_date)
+                total_seconds += (actual_end - actual_start).total_seconds()
             
             # 3. Logika zaokrouhlování
             total_minutes = total_seconds / 60
@@ -67,7 +72,9 @@ class ActivityAggregator:
         
         for log in logs:
             name = log.project.name
-            duration = (log.end_time - log.start_time).total_seconds()
+            actual_start = max(log.start_time, start)
+            actual_end = min(log.end_time, end)
+            duration = (actual_end - actual_start).total_seconds()
             stats[name] = stats.get(name, 0) + duration
             
         return stats
@@ -83,8 +90,8 @@ class ActivityAggregator:
                 select(ActivityLog)
                 .options(joinedload(ActivityLog.project).joinedload(Project.client))
                 .where(
-                    ActivityLog.start_time >= start_dt,
-                    ActivityLog.end_time <= end_dt
+                    ActivityLog.start_time <= end_dt,
+                    ActivityLog.end_time >= start_dt
                 )
             )
             logs = session.execute(stmt).scalars().all()
@@ -97,7 +104,9 @@ class ActivityAggregator:
                 if c_name not in stats: stats[c_name] = {}
                 if p_name not in stats[c_name]: stats[c_name][p_name] = 0
                 
-                stats[c_name][p_name] += (log.end_time - log.start_time).total_seconds()
+                actual_start = max(log.start_time, start_dt)
+                actual_end = min(log.end_time, end_dt)
+                stats[c_name][p_name] += (actual_end - actual_start).total_seconds()
                 
             return stats
 
@@ -130,7 +139,13 @@ class ActivityAggregator:
                     grand_total += summary["total_price"]
 
             return {
-                "sender": { "name": profile.name if profile else "...", "address": profile.address or "...", "ico": profile.ico or "...", "dic": profile.dic or "...", "bank_account": profile.bank_account or "..." },
+                "sender": { 
+                    "name": profile.name if profile and profile.name else "...", 
+                    "address": profile.address if profile and profile.address else "...", 
+                    "ico": profile.ico if profile and profile.ico else "...", 
+                    "dic": profile.dic if profile and profile.dic else "...", 
+                    "bank_account": profile.bank_account if profile and profile.bank_account else "..." 
+                },
                 "recipient": { "name": client.name, "address": client.address or "...", "ico": client.ico or "...", "dic": client.dic or "...", "email": client.email or "..." },
                 "period": f"{start_date.strftime('%d.%m.%Y')} - {end_date.strftime('%d.%m.%Y')}",
                 "jobs": jobs, # Seznam projektů
@@ -178,11 +193,16 @@ class ActivityAggregator:
                 select(ActivityLog.start_time, ActivityLog.end_time)
                 .where(
                     ActivityLog.project_id == project_id,
-                    ActivityLog.start_time >= start_dt,
-                    ActivityLog.end_time <= end_dt
+                    ActivityLog.start_time <= end_dt,
+                    ActivityLog.end_time >= start_dt
                 )
             )
             logs = session.execute(stmt).all()
             
-            total_seconds = sum((end - start).total_seconds() for start, end in logs)
+            total_seconds = 0
+            for start, end in logs:
+                actual_start = max(start, start_dt)
+                actual_end = min(end, end_dt)
+                total_seconds += (actual_end - actual_start).total_seconds()
+                
             return total_seconds / 3600  # Převod na hodiny

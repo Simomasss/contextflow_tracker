@@ -25,6 +25,7 @@ def setup_mock_data():
     with db.Session() as session:
         # 1. TVŮJ PROFIL (Odesílatel)
         profile = BillingProfile(
+            id=1,
             name="Jan Programátor",
             address="Kódovací 128, Praha 10, 100 00",
             ico="12345678",

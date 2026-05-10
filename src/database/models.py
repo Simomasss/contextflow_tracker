@@ -1,4 +1,4 @@
-from sqlalchemy import Float, Integer, String, ForeignKey, DateTime
+from sqlalchemy import Float, Integer, String, ForeignKey, DateTime, CheckConstraint, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from datetime import datetime
 from typing import List, Optional
@@ -21,6 +21,9 @@ class Client(Base):
 
 class Project(Base):
     __tablename__ = 'projects'
+    __table_args__ = (
+        UniqueConstraint('client_id', 'name', name='uq_project_client_name'),
+    )
     id: Mapped[int] = mapped_column(primary_key=True)
     client_id: Mapped[int] = mapped_column(ForeignKey('clients.id'))
     name: Mapped[str] = mapped_column(String, nullable=False)
@@ -32,6 +35,9 @@ class Project(Base):
 
 class ActivityLog(Base):
     __tablename__ = 'activity_logs'
+    __table_args__ = (
+        CheckConstraint('end_time >= start_time', name='chk_end_after_start'),
+    )
     id: Mapped[int] = mapped_column(primary_key=True)
     project_id: Mapped[int] = mapped_column(ForeignKey('projects.id'))
     start_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
@@ -43,6 +49,9 @@ class ActivityLog(Base):
 
 class BillingProfile(Base):
     __tablename__ = 'billing_profile'
+    __table_args__ = (
+        CheckConstraint('id = 1', name='chk_singleton_profile'),
+    )
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
     address: Mapped[Optional[str]] = mapped_column(String)

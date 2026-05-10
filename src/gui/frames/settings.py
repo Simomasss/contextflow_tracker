@@ -26,7 +26,6 @@ class SettingsFrame(ctk.CTkFrame):
         self._add_section_header("Logika sledování")
         self._create_setting_field("ENTRY_MINUTES", "Vstupní lhůta (min):", "Jak dlouho čekat, než potvrdíme vstup do kontextu.")
         self._create_setting_field("PROTECTION_MINUTES", "Ochranná lhůta (min):", "Jak dlouho čekat, než potvrdíme změnu kontextu.")
-        self._create_setting_field("TICK_INTERVAL", "Interval kontroly (sec):", "Jak často engine kontroluje aktivní okno.")
         self._create_setting_field("AFK_THRESHOLD", "AFK limit (sec):", "Doba nečinnosti, po které se stopne měření.")
 
         # --- SEKCE: FILTRY ---
@@ -86,21 +85,34 @@ class SettingsFrame(ctk.CTkFrame):
             # 1. Načtení a konverze dat
             self.settings.MAIN_FOLDER = self.entries["MAIN_FOLDER"].get()
             self.settings.DB_URL = self.entries["DB_URL"].get()
-            self.settings.ENTRY_MINUTES = float(self.entries["ENTRY_MINUTES"].get())
-            self.settings.PROTECTION_MINUTES = float(self.entries["PROTECTION_MINUTES"].get())
-            self.settings.TICK_INTERVAL = int(self.entries["TICK_INTERVAL"].get())
-            self.settings.AFK_THRESHOLD = int(self.entries["AFK_THRESHOLD"].get())
+            
+            e_min = float(self.entries["ENTRY_MINUTES"].get())
+            p_min = float(self.entries["PROTECTION_MINUTES"].get())
+            afk_t = int(self.entries["AFK_THRESHOLD"].get())
+            
+            if e_min <= 0 or p_min <= 0 or afk_t <= 0:
+                messagebox.showerror("Chyba", "Časové hodnoty musí být větší než 0.")
+                return
+                
+            self.settings.ENTRY_MINUTES = e_min
+            self.settings.PROTECTION_MINUTES = p_min
+            self.settings.AFK_THRESHOLD = afk_t
             
             # 2. Zpracování Whitelistu (string -> list)
             whitelist_raw = self.entries["WHITELIST"].get()
             self.settings.WHITELIST = [item.strip() for item in whitelist_raw.split(",") if item.strip()]
 
-            # 3. Uložení do souboru # TODO: Je možná optimalizace settings?
+            # 3. Uložení do souboru
             self.settings.save()
-            messagebox.showinfo("Úspěch", "Nastavení uloženo. Pro propsání změn je nutné restartovat.\nV liště zvolte 'Ukončit' a pak znova zapněte ContextFlow.exe")
             
+            # 4. Aplikování změn za běhu (pokud byl předán launcher)
+            if self.launcher:
+                self.launcher.apply_settings()
+            else:
+                messagebox.showinfo("Úspěch", "Nastavení uloženo. (Pro propsání je nutný restart)")
+
         except ValueError as e:
-            messagebox.showerror("Chyba", "Zkontrolujte číselné hodnoty (Interval, AFK, Ochranná lhůta musí být čísla).")
+            messagebox.showerror("Chyba", "Zkontrolujte číselné hodnoty (Vstupní lhůta, Ochranná lhůta, AFK musí být čísla).")
         except Exception as e:
             messagebox.showerror("Chyba", f"Nepodařilo se uložit nastavení: {e}")
 

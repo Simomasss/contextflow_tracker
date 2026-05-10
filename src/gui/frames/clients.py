@@ -170,20 +170,26 @@ class ClientsFrame(ctk.CTkFrame):
     def _save_project_rates(self, session):
         """Pomocná metoda pro uložení hodinových sazeb z formuláře."""
         for pid, entry in self.project_rate_entries.items():
-            try:
-                rate_val = float(entry.get())
-                proj = session.get(Project, pid)
-                if proj:
-                    proj.hourly_rate = rate_val
-            except (ValueError, TypeError):
-                # Pokud hodnota není platné číslo, ignorujeme ji, aby aplikace nespadla.
-                pass
+            val_str = entry.get().strip()
+            if not val_str:
+                rate_val = 0.0
+            else:
+                try:
+                    # Podpora pro českou čárku v desetinném čísle
+                    val_str = val_str.replace(',', '.')
+                    rate_val = float(val_str)
+                except ValueError:
+                    raise ValueError(f"Hodinová sazba musí být číslo (zadáno: '{entry.get()}').")
+                    
+            proj = session.get(Project, pid)
+            if proj:
+                proj.hourly_rate = rate_val
 
     def _save_form_data(self, session):
         """Pomocná metoda pro uložení všech dat z formulářů (Odesílatel, Příjemce, Sazby)."""
         profile = session.execute(select(BillingProfile)).scalar_one_or_none()
         if not profile:
-            profile = BillingProfile()
+            profile = BillingProfile(id=1)
             session.add(profile)
         
         profile.name = self.sender_entries["name"].get()

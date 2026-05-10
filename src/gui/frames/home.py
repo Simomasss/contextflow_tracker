@@ -263,14 +263,22 @@ class HomeFrame(ctk.CTkFrame):
         project_colors = {}
         color_idx = 0
 
+        # Hranice dnešního dne pro vizuální ořez
+        day_start = datetime.combine(self.current_date, datetime.min.time())
+        day_end = datetime.combine(self.current_date, datetime.max.time())
+
         for log in logs:
             p_name = log.project.name
             if p_name not in project_colors:
                 project_colors[p_name] = colors[color_idx % len(colors)]
                 color_idx += 1
 
-            start_h = log.start_time.hour + log.start_time.minute/60 + log.start_time.second/3600
-            end_h = log.end_time.hour + log.end_time.minute/60 + log.end_time.second/3600
+            # Vizuálně zařízneme log na hranici zobrazeného dne
+            actual_start = max(log.start_time, day_start)
+            actual_end = min(log.end_time, day_end)
+
+            start_h = actual_start.hour + actual_start.minute/60 + actual_start.second/3600
+            end_h = actual_end.hour + actual_end.minute/60 + actual_end.second/3600
             
             x1 = (start_h / 24) * w
             x2 = (end_h / 24) * w

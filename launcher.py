@@ -173,6 +173,7 @@ class ContextFlowLauncher:
             except Exception as e:
                 logging.info(f"Nepodařilo se zapsat do registru: {e}")
 
+#TODO: Zmena nastavení za behu  
     def apply_settings(self):
         """Tato metoda se volá z GUI. Jen spustí vlákno a hned vrátí řízení GUI."""
         if self.restart_lock.locked():
@@ -200,7 +201,7 @@ class ContextFlowLauncher:
                 self.watcher = WindowWatcher(self.settings.WHITELIST)
                 self.indexer = IndexManager(self.settings.MAIN_FOLDER)
                 self.fw = FileWatcher(self.indexer)
-                self.afk.threshold = self.settings.AFK_THRESHOLD
+                self.afk = AFKWatcher(threshold_seconds=self.settings.AFK_THRESHOLD)
                 
                 self.engine = ContextEngine(
                     self.watcher, 
@@ -212,12 +213,13 @@ class ContextFlowLauncher:
 
                 # 3. Start nových služeb
                 self.fw.start()
-                self.engine.start()
+                self.engine_thread = threading.Thread(target=self.run_engine_loop, daemon=True)
+                self.engine_thread.start()
                 
                 logging.info("--- Engine úspěšně restartován (všechny staré procesy ukončeny) ---")
                 
                 # 4. Úspěšná zpráva do GUI
-                self.gui.after(0, lambda: messagebox.showinfo("Hotovo", "Nastavení bylo aplikováno.\nEngine běží s novým whitelistu."))
+                self.gui.after(0, lambda: messagebox.showinfo("Hotovo", "Nastavení bylo aplikováno.\nAplikace běží s novým nastavením."))
                 
             except Exception as e:
                 logging.error(f"Chyba při reaktivním restartu: {e}", exc_info=True)

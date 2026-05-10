@@ -42,12 +42,28 @@ class AppSettings:
             try:
                 with open(path, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    for key, value in data.items():
-                        if hasattr(self, key):
-                            setattr(self, key, value)
+                    
+                    # Validace a bezpečné přiřazení
+                    if "MAIN_FOLDER" in data and isinstance(data["MAIN_FOLDER"], str):
+                        self.MAIN_FOLDER = data["MAIN_FOLDER"]
+                    if "DB_URL" in data and isinstance(data["DB_URL"], str):
+                        self.DB_URL = data["DB_URL"]
+                    if "WHITELIST" in data and isinstance(data["WHITELIST"], list):
+                        self.WHITELIST = [str(item) for item in data["WHITELIST"]]
+                        
+                    # Ošetření čísel a záporných hodnot/nul
+                    if "ENTRY_MINUTES" in data and isinstance(data["ENTRY_MINUTES"], (int, float)):
+                        self.ENTRY_MINUTES = max(0.1, float(data["ENTRY_MINUTES"]))
+                    if "PROTECTION_MINUTES" in data and isinstance(data["PROTECTION_MINUTES"], (int, float)):
+                        self.PROTECTION_MINUTES = max(0.1, float(data["PROTECTION_MINUTES"]))
+                    if "TICK_INTERVAL" in data and isinstance(data["TICK_INTERVAL"], (int, float)):
+                        self.TICK_INTERVAL = max(1, int(data["TICK_INTERVAL"]))
+                    if "AFK_THRESHOLD" in data and isinstance(data["AFK_THRESHOLD"], (int, float)):
+                        self.AFK_THRESHOLD = max(10, int(data["AFK_THRESHOLD"]))
+                        
                 # logging.info(f"✓ Nastavení načteno ze souboru {path}")
             except Exception as e:
-                logging.info(f"⚠ Chyba při načítání settings.json: {e}")
+                logging.warning(f"⚠ Chyba při načítání settings.json: {e}")
 
     def save(self, path="settings.json"):
         """Uloží aktuální nastavení do souboru (budeme potřebovat pro GUI)."""

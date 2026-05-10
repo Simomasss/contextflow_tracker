@@ -11,10 +11,13 @@ from sqlalchemy import event
 from ..core.config import AppSettings
 
 class DatabaseManager:
-    def __init__(self,settings: AppSettings, db_url: str = "sqlite:///contextflow.db"):
+    def __init__(self, settings: AppSettings, db_url: Optional[str] = None):
         self.settings = settings
-        self.engine = create_engine(db_url)
         
+        # Pokud nepředáme specifické db_url, použije se to z uživatelského nastavení
+        final_url = db_url if db_url else self.settings.DB_URL
+        self.engine = create_engine(final_url)
+
         # TENTO BLOK zapne hlídání cizích klíčů v SQLite
         @event.listens_for(self.engine, "connect")
         def set_sqlite_pragma(dbapi_connection, connection_record):
