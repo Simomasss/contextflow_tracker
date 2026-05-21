@@ -7,6 +7,9 @@ from PIL import Image
 import os
 import sys
 import customtkinter as ctk
+import shutil
+import subprocess
+import tempfile
 from src.utils.logger_config import setup_logging
 import logging
 
@@ -24,6 +27,77 @@ from src.watchers.afk_watcher import AFKWatcher
 from src.watchers.file_watcher import FileWatcher
 from src.core.engine import ContextEngine
 from src.gui.app import ContextFlowGUI
+from src.utils.paths import get_app_data_dir
+
+def handle_portable_installation():
+    """
+    Pokud je aplikace spuštěna jako EXE z náhodného místa (např. Stažené soubory),
+    přesune se automaticky do LocalAppData a na původním místě zanechá zástupce.
+    Tím se zabrání rozbití automatického spouštění po startu systému, pokud
+    by uživatel původní EXE přesunul jinam.
+    """
+    if not getattr(sys, 'frozen', False):
+        return # Běžíme ze zdrojáků, nic nepřesouváme
+
+    current_exe = os.path.abspath(sys.executable)
+    appdata_dir = get_app_data_dir()
+    target_exe = os.path.join(appdata_dir, "ContextFlow.exe")
+
+    # Pokud už běžíme z AppData, nic neděláme
+    if os.path.normcase(current_exe) == os.path.normcase(target_exe):
+        return
+
+    # Vytvořit cílovou složku
+    os.makedirs(appdata_dir, exist_ok=True)
+
+    try:
+        logging.info(f"Probíhá instalace EXE do: {target_exe}")
+        # 1. Zkopírovat se do AppData
+        shutil.copy2(current_exe, target_exe)
+
+        # 2. Vytvořit zástupce na původním místě přes VBScript
+        original_dir = os.path.dirname(current_exe)
+        original_name = os.path.splitext(os.path.basename(current_exe))[0]
+        shortcut_path = os.path.join(original_dir, f"{original_name}.lnk")
+
+        vbs_script = f"""
+        Set oWS = WScript.CreateObject("WScript.Shell")
+        Set oLink = oWS.CreateShortcut("{shortcut_path}")
+        oLink.TargetPath = "{target_exe}"
+        oLink.WorkingDirectory = "{appdata_dir}"
+        oLink.IconLocation = "{target_exe}"
+        oLink.Save
+        """
+        vbs_path = os.path.join(tempfile.gettempdir(), "create_shortcut.vbs")
+        with open(vbs_path, "w", encoding="utf-8") as f:
+            f.write(vbs_script)
+        
+        subprocess.run(["cscript.exe", "//Nologo", vbs_path], creationflags=subprocess.CREATE_NO_WINDOW)
+        
+        try:
+            os.remove(vbs_path)
+        except Exception:
+            pass
+
+        # 3. Vytvořit .bat skript pro bezpečné smazání starého EXE a restart aplikace
+        bat_path = os.path.join(tempfile.gettempdir(), "cf_migrate.bat")
+        with open(bat_path, "w", encoding="utf-8") as f:
+            f.write("@echo off\n")
+            f.write("timeout /t 2 /nobreak > NUL\n") # Počkat na ukončení starého procesu
+            f.write(f'del "{current_exe}"\n')
+            f.write(f'start "" "{target_exe}"\n')
+            f.write('del "%~f0"\n') # Smazat sám sebe
+
+        # Spustit bat skript na pozadí bez okna
+        subprocess.Popen([bat_path], shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        
+        logging.info("Aplikace byla úspěšně přesunuta. Restartuji...")
+        # Okamžitě ukončit aktuální proces (odblokuje původní EXE pro smazání)
+        os._exit(0)
+
+    except Exception as e:
+        logging.error(f"Nepodařilo se přesunout aplikaci do AppData: {e}")
+        # V případě chyby prostě pokračujeme v běhu ze stávajícího místa
 
 def resource_path(relative_path):
     """ Pomocná funkce pro získání absolutní cesty k prostředkům (pro PyInstaller) """
@@ -50,6 +124,9 @@ class ContextFlowLauncher:
         self.fw = FileWatcher(self.indexer)
         self.engine = ContextEngine(self.watcher, self.indexer, self.db, afk_watcher=self.afk, settings=self.settings)
 
+        
+        # Přidání do registry pro start s Windows (funguje jen pro EXE verzi a aktualizuje cestu)
+        self.add_to_startup()
         
         # 2. VYTVOŘÍME GUI HNED (ale nezobrazíme)
         self.icon_path = resource_path("src/gui/assets/icon.ico")
@@ -101,9 +178,6 @@ class ContextFlowLauncher:
         self.tray_thread = threading.Thread(target=self.icon.run, daemon=True)
         self.tray_thread.start()
 
-        # Přidání do registry pro start s Windows (funguje jen pro EXE verzi)
-        self.add_to_startup()
-
         # D. GUI MAINLOOP V HLAVNÍM VLÁKNĚ
         logging.info("✓ ContextFlow běží. GUI v hlavním vlákně, Tray ve vedlejším.")
         logging.info(self.indexer.lookup_map) # Pro debugování indexu při startu
@@ -151,17 +225,25 @@ class ContextFlowLauncher:
             sys.exit()
 
     def add_to_startup(self):
-        """Přidá aktuální EXE do registru pro start po zapnutí PC."""
+        """Přidá aktuální EXE do registru pro start po zapnutí PC a aktualizuje cestu, pokud byla aplikace přesunuta."""
         if getattr(sys, 'frozen', False):
             app_path = sys.executable
             key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
             try:
-                key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_SET_VALUE)
-                winreg.SetValueEx(key, "ContextFlow", 0, winreg.REG_SZ, app_path)
-                winreg.CloseKey(key)
-                logging.info("✓ Aplikace přidána do po spuštění.")
+                key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_READ | winreg.KEY_SET_VALUE)
+                try:
+                    current_val, _ = winreg.QueryValueEx(key, "ContextFlow")
+                    if current_val != app_path:
+                        winreg.SetValueEx(key, "ContextFlow", 0, winreg.REG_SZ, app_path)
+                        logging.info("✓ Cesta v registru aktualizována.")
+                except FileNotFoundError:
+                    # Key doesn't exist yet, create it
+                    winreg.SetValueEx(key, "ContextFlow", 0, winreg.REG_SZ, app_path)
+                    logging.info("✓ Aplikace přidána do po spuštění.")
+                finally:
+                    winreg.CloseKey(key)
             except Exception as e:
-                logging.info(f"Nepodařilo se zapsat do registru: {e}")
+                logging.info(f"Nepodařilo se zapsat/číst do registru: {e}")
 
     def apply_settings(self):
         """Tato metoda se volá z GUI. Jen spustí vlákno a hned vrátí řízení GUI."""
@@ -212,6 +294,7 @@ class ContextFlowLauncher:
                 self.gui.after(0, lambda: messagebox.showerror("Chyba", f"Restart selhal: {e}"))
 
 if __name__ == "__main__":
+    handle_portable_installation() # Provede instalaci/přesun do AppData, pokud je to potřeba
     setup_logging() # Log > soubor
     try:
         launcher = ContextFlowLauncher()

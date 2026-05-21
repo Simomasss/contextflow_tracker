@@ -19,101 +19,76 @@ def setup_mock_data():
     
     # Inicializace TEST databáze
     db = DatabaseManager(settings=settings, db_url="sqlite:///contextflow.db")
-    Base.metadata.drop_all(db.engine) # Smažeme staré tabulky pro čistý start
+    # Záměrně nemážeme tabulky pomocí drop_all, abychom zachovali dosavadní data
     Base.metadata.create_all(db.engine)
 
     with db.Session() as session:
-        # 1. TVŮJ PROFIL (Odesílatel)
-        profile = BillingProfile(
-            id=1,
-            name="Jan Programátor",
-            address="Kódovací 128, Praha 10, 100 00",
-            ico="12345678",
-            dic="CZ12345678",
-            bank_account="2100123456/2010",
-            logo_path="C:/path/to/logo.png",
-            rounding_minutes=15
-        )
-        session.add(profile)
-        '''
-        # 2. KLIENTI
-        adam = Client(
-            name="Adam", 
-            address="U Lesa 5, Brno, 602 00", 
-            ico="11223344", 
-            dic="CZ11223344", 
-            email="adam.klient@seznam.cz"
-        )
-        pepa = Client(
-            name="Pepa", 
-            address="Vysoká 10, Ostrava, 700 00", 
-            ico="55667788", 
-            dic="CZ55667788", 
-            email="pepa.dedictvi@gmail.com"
-        )
-        '''
-        adam = Client(
-            name="Adam", 
-            address="U Lesa 5, Brno, 602 00"
-        )
-        pepa = Client(
-            name="Pepa"
-        )
-        session.add_all([adam, pepa])
+        # 1. ZÍSKÁNÍ NEBO VYTVOŘENÍ KLIENTŮ A PROJEKTŮ
+        client_cf = session.execute(select(Client).where(Client.name == "contextflow_tracker")).scalar_one_or_none()
+        if not client_cf:
+            client_cf = Client(name="contextflow_tracker")
+            session.add(client_cf)
+            
+        client_lit = session.execute(select(Client).where(Client.name == "literatura")).scalar_one_or_none()
+        if not client_lit:
+            client_lit = Client(name="literatura")
+            session.add(client_lit)
+            
         session.flush()
 
-        # 3. PROJEKTY
-        p1 = Project(name="projekt1", client=adam, hourly_rate=500.0, currency="CZK")
-        p2 = Project(name="projekt2", client=adam, hourly_rate=750.0, currency="CZK")
-        dedictvi = Project(name="dedictvi", client=pepa, hourly_rate=600.0, currency="CZK")
-        session.add_all([p1, p2, dedictvi])
+        proj_src = session.execute(select(Project).where(Project.name == "src", Project.client_id == client_cf.id)).scalar_one_or_none()
+        if not proj_src:
+            proj_src = Project(name="src", client_id=client_cf.id, hourly_rate=500.0, currency="CZK")
+            session.add(proj_src)
+
+        proj_lit = session.execute(select(Project).where(Project.name == "projetkProMereniLiteratura", Project.client_id == client_lit.id)).scalar_one_or_none()
+        if not proj_lit:
+            proj_lit = Project(name="projetkProMereniLiteratura", client_id=client_lit.id, hourly_rate=600.0, currency="CZK")
+            session.add(proj_lit)
+
         session.flush()
 
-        # 4. GENEROVÁNÍ LOGŮ
+        # 2. GENEROVÁNÍ LOGŮ PODLE POŽADAVKŮ
         now = datetime.now()
+        today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        yesterday = today - timedelta(days=1)
         
-        # --- DEN 1: Historie (před 2 dny) ---
-        d1 = now - timedelta(days=2)
-        session.add(ActivityLog(project=p1, start_time=d1.replace(hour=9, minute=0), end_time=d1.replace(hour=11, minute=0), window_title="Dokumentace - Word", executable="winword.exe"))
-        session.add(ActivityLog(project=p2, start_time=d1.replace(hour=13, minute=0), end_time=d1.replace(hour=15, minute=40), window_title="Tabulka nákladů - Excel", executable="excel.exe"))
+        logs = [
+            # VČERA (10:00 - 12:00)
+            ActivityLog(project=proj_src, start_time=yesterday.replace(hour=10, minute=14, second=30), 
+                        end_time=yesterday.replace(hour=11, minute=22, second=15), 
+                        window_title="core/engine.py - contextflow_tracker", executable="code.exe"),
+            ActivityLog(project=proj_lit, start_time=yesterday.replace(hour=11, minute=27, second=10), 
+                        end_time=yesterday.replace(hour=11, minute=58, second=45), 
+                        window_title="prezentace_baka_seminar", executable="powerpnt.exe"),
+            
+            # VČERA (18:00 - 21:00)
+            ActivityLog(project=proj_src, start_time=yesterday.replace(hour=18, minute=5, second=20), 
+                        end_time=yesterday.replace(hour=19, minute=42, second=15), 
+                        window_title="gui/app.py - contextflow_tracker", executable="code.exe"),
+            ActivityLog(project=proj_src, start_time=yesterday.replace(hour=19, minute=47, second=30), 
+                        end_time=yesterday.replace(hour=20, minute=54, second=10), 
+                        window_title="watchers/window_watcher.py - contextflow_tracker", executable="code.exe"),
 
-        # --- DEN 2: Historie (včera) ---
-        d2 = now - timedelta(days=1)
-        session.add(ActivityLog(project=dedictvi, start_time=d2.replace(hour=10, minute=0), end_time=d2.replace(hour=11, minute=30), window_title="Prezentace pro Pepu", executable="powerpnt.exe"))
-        session.add(ActivityLog(project=dedictvi, start_time=d2.replace(hour=14, minute=0), end_time=d2.replace(hour=15, minute=45), window_title="Smlouva - Word", executable="winword.exe"))
+            # DNES (10:00 - 14:30)
+            ActivityLog(project=proj_src, start_time=today.replace(hour=10, minute=5, second=12), 
+                        end_time=today.replace(hour=11, minute=13, second=48), 
+                        window_title="database/models.py - contextflow_tracker", executable="code.exe"),
+            ActivityLog(project=proj_lit, start_time=today.replace(hour=11, minute=21, second=5), 
+                        end_time=today.replace(hour=12, minute=44, second=33), 
+                        window_title="prezentace_baka_seminar", executable="powerpnt.exe"),
+            ActivityLog(project=proj_src, start_time=today.replace(hour=12, minute=56, second=10), 
+                        end_time=today.replace(hour=13, minute=41, second=22), 
+                        window_title="gui/frames/home.py - contextflow_tracker", executable="code.exe"),
+            ActivityLog(project=proj_src, start_time=today.replace(hour=13, minute=48, second=40), 
+                        end_time=today.replace(hour=14, minute=26, second=15), 
+                        window_title="core/indexer.py - contextflow_tracker", executable="code.exe")
+        ]
 
-        # --- DEN 3: DNEŠEK (Minimálně 3 různé záznamy) ---
-        # Záznam A: Ranní programování (Projekt 1)
-        session.add(ActivityLog(
-            project=p1, 
-            start_time=now.replace(hour=8, minute=30, second=0), 
-            end_time=now.replace(hour=10, minute=15, second=0), 
-            window_title="Visual Studio Code", 
-            executable="code.exe"
-        ))
-
-        # Záznam B: Odpolední research (Projekt 2)
-        session.add(ActivityLog(
-            project=p2, 
-            start_time=now.replace(hour=11, minute=0, second=0), 
-            end_time=now.replace(hour=11, minute=45, second=0), 
-            window_title="Google Chrome - Dokumentace", 
-            executable="chrome.exe"
-        ))
-
-        # Záznam C: Večerní administrativa (Dědictví)
-        session.add(ActivityLog(
-            project=dedictvi, 
-            start_time=now.replace(hour=12, minute=20, second=0), 
-            end_time=now.replace(hour=13, minute=10, second=0), 
-            window_title="Outlook - E-maily", 
-            executable="outlook.exe"
-        ))
-
+        session.add_all(logs)
         session.commit()
-        logging.info(f"✓ Databáze contextflow.db byla úspěšně aktualizována.")
-        logging.info(f"✓ Vygenerovány 3 logy pro dnešek ({now.strftime('%d.%m.%Y')}).")
-        logging.info(f"✓ Všechny spustitelné soubory jsou v lowercase.")
+        
+        logging.info(f"✓ Showcase data byla přidána do databáze bez mazání stávajících záznamů.")
 
 if __name__ == "__main__":
     setup_mock_data()

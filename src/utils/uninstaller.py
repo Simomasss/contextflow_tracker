@@ -3,9 +3,13 @@ import os
 import sys
 import winreg
 import subprocess
+import shutil
+from datetime import datetime
+
+from src.utils.paths import get_app_data_dir
 
 def run_contextflow_uninstaller():
-    """Provede odinstalaci aplikace (mimo databáze)."""
+    """Provede odinstalaci aplikace a zálohuje data."""
     exe_path = ""
     is_exe = False
     
@@ -22,30 +26,49 @@ def run_contextflow_uninstaller():
     # 2. Určení cest
     if getattr(sys, 'frozen', False):
         # Režim EXE
-        base_dir = os.path.dirname(sys.executable)
         exe_path = sys.executable
         is_exe = True
-    else:
-        # Režim vývoje (skript) - base_dir je root projektu
-        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-        is_exe = False
 
-    json_path = os.path.join(base_dir, "settings.json")
+    app_data_dir = get_app_data_dir()
+    downloads_folder = os.path.join(os.path.expanduser("~"), "Downloads")
+    backup_folder_name = f"ContextFlow_Backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    backup_path = os.path.join(downloads_folder, backup_folder_name)
 
-    # 3. Smazání nastavení (JSON)
-    if os.path.exists(json_path):
-        try:
-            os.remove(json_path)
-            logging.info("✓ Soubor settings.json smazán.")
-        except Exception as e:
-            logging.info(f"Nepodařilo se smazat JSON: {e}")
+    # 3. Záloha DB a Logů
+    try:
+        os.makedirs(backup_path, exist_ok=True)
+        
+        db_file = os.path.join(app_data_dir, "contextflow.db")
+        log_file = os.path.join(app_data_dir, "contextflow.log")
+        
+        if os.path.exists(db_file):
+            shutil.copy2(db_file, backup_path)
+            logging.info("✓ Databáze zálohována do Stažených souborů.")
+            
+        if os.path.exists(log_file):
+            shutil.copy2(log_file, backup_path)
+            logging.info("✓ Logy zálohovány do Stažených souborů.")
+            
+    except Exception as e:
+        logging.info(f"Nepodařilo se vytvořit zálohu: {e}")
 
-    # 4. Smazání samotného EXE (jen pokud existuje cesta a jsme v EXE)
-    if is_exe and exe_path:
-        logging.info("! Spouštím self-destruct sekvenci pro EXE...")
-        # CMD: počká 2s a pak smaže soubor
-        cmd = f'timeout /t 2 > nul && del /f /q "{exe_path}"'
-        subprocess.Popen(cmd, shell=True)
-    
-    logging.info("Odinstalace dokončena. Aplikace se nyní ukončí.")
+    logging.info("Odinstalace dokončena. Spouštím self-destruct sekvenci a aplikaci ukončuji.")
+
+    # Uzavřeme logování, abychom uvolnili soubor contextflow.log a mohli smazat složku
+    logging.shutdown()
+
+    # 4. Smazání AppData složky a samotného EXE (v CMD na pozadí, abychom to mohli smazat po ukončení)
+    if os.path.exists(app_data_dir):
+        # rmdir /s /q smaže složku včetně všech souborů (i EXE, pokud tam je a už nebeží)
+        cmd_parts = ["timeout /t 3 > nul", f'rmdir /s /q "{app_data_dir}"']
+        
+        if is_exe and exe_path and not os.path.normcase(exe_path).startswith(os.path.normcase(app_data_dir)):
+            cmd_parts.append(f'del /f /q "{exe_path}"')
+            
+        cmd = " && ".join(cmd_parts)
+        
+        # Pokud by CMD běželo z AppData, Windows by smazal obsah, ale nepovolil by smazat samotnou složku ContextFlow.
+        safe_cwd = os.path.expanduser("~")
+        subprocess.Popen(cmd, shell=True, creationflags=subprocess.CREATE_NO_WINDOW, cwd=safe_cwd)
+
     os._exit(0)

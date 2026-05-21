@@ -3,12 +3,12 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Virtuální prostředí (to nejdůležitější!)
+# Virtuální prostředí
 .venv/
 venv/
 env/
 
-# Databáze (nechceš verzovat svá osobní data o čase)
+# Databáze
 *.db
 *.sqlite3
 
@@ -16,7 +16,7 @@ env/
 .vscode/
 .idea/
 
-# Konfigurace s tvými cestami (každý ji má jinou)
+# Nastavení
 settings.json
 
 # Dočasné soubory (faktury)
@@ -26,3 +26,6 @@ settings.json
 # PyInstaller
 build/
 dist/
+
+# Gemini code assist
+.geminiignore

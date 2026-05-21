@@ -11,7 +11,7 @@ def resource_path(relative_path):
 class SetupWindow(ctk.CTk):
     def __init__(self, on_folder_select):
         super().__init__()
-        self.title("ContextFlow - Průvodce nastavením")
+        self.title("ContextFlow - Prvotní nastavení")
         self.geometry("800x700") 
         self.on_folder_select = on_folder_select
 

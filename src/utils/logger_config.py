@@ -3,14 +3,13 @@ import os
 import sys
 from logging.handlers import RotatingFileHandler
 
-def setup_logging():
-    # Určení složky (stejně jako u settings.json)
-    if getattr(sys, 'frozen', False):
-        base_dir = os.path.dirname(sys.executable)
-    else:
-        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+from src.utils.paths import get_app_data_dir
 
-    log_path = os.path.join(base_dir, "contextflow.log")
+def setup_logging():
+    app_data_dir = get_app_data_dir()
+    os.makedirs(app_data_dir, exist_ok=True)
+    
+    log_path = os.path.join(app_data_dir, "contextflow.log")
 
     # Formát logu: Čas - Úroveň - Zpráva
     log_format = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')

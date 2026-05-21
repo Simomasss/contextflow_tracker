@@ -5,6 +5,8 @@ from dataclasses import dataclass, field, asdict
 import sys
 from typing import List
 
+from src.utils.paths import get_app_data_dir
+
 @dataclass
 class AppSettings:
     # --- VÝCHOZÍ HODNOTY  ---
@@ -14,20 +16,20 @@ class AppSettings:
     PROTECTION_MINUTES: float = 5.0
     TICK_INTERVAL: int = 5
     AFK_THRESHOLD: int = 360 # 6 minut nečinnosti = AFK, prodlouženo jako závěr z testování
-    DB_URL: str = "sqlite:///contextflow.db"
+    DB_URL: str = "" # Nastaví se v post_init
 
     def __post_init__(self):
         """Tato metoda se spustí hned po vytvoření objektu AppSettings()."""
-        # Najde složku, kde leží spuštěný .exe (nebo .py skript)
-        if getattr(sys, 'frozen', False):
-            # Režim EXE - složka u .exe
-            application_path = os.path.dirname(sys.executable)
-        else:
-            # Režim skript - skočíme z src/core o dvě úrovně výš do kořene projektu
-            current_dir = os.path.dirname(os.path.abspath(__file__)) # src/core
-            application_path = os.path.abspath(os.path.join(current_dir, "..", ".."))
+        app_data_dir = get_app_data_dir()
+        os.makedirs(app_data_dir, exist_ok=True)
+        
+        # Nastavení defaultní DB_URL, pokud není v json (nebo nastavíme základní)
+        default_db_path = os.path.join(app_data_dir, "contextflow.db")
+        # Pro SQLAlchemy sqlite url potřebuje trojité lomítko pro relativní nebo absolutní cesty na Unixu, na Windows čtyřité nebo trojité
+        # Lepší je formát `sqlite:///{absolutni_cesta}`
+        self.DB_URL = f"sqlite:///{default_db_path}"
 
-        self.config_path = os.path.join(application_path, "settings.json")
+        self.config_path = os.path.join(app_data_dir, "settings.json")
         
         if not os.path.exists(self.config_path):
             logging.info(f"Vytvářím výchozí json soubor v: {self.config_path}")
@@ -35,8 +37,11 @@ class AppSettings:
         else:
             self.load(self.config_path)
 
-    def load(self, path="settings.json"):
+    def load(self, path=None):
         """Načte data ze souboru a přepíše výchozí hodnoty."""
+        if path is None:
+            path = self.config_path
+            
         if os.path.exists(path):
             try:
                 with open(path, "r", encoding="utf-8") as f:
@@ -64,8 +69,10 @@ class AppSettings:
             except Exception as e:
                 logging.warning(f"⚠ Chyba při načítání settings.json: {e}")
 
-    def save(self, path="settings.json"):
+    def save(self, path=None):
         """Uloží aktuální nastavení do souboru (budeme potřebovat pro GUI)."""
+        if path is None:
+            path = self.config_path
         with open(path, "w", encoding="utf-8") as f:
             # Převedeme dataclass na slovník, ale vynecháme @property
             json.dump(asdict(self), f, indent=4)
