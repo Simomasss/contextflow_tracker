@@ -1,13 +1,12 @@
 import threading
 import time
 from tkinter import messagebox
-import pystray
-from PIL import Image
 import os
 import sys
 import customtkinter as ctk
-from src.utils.logger_config import setup_logging
 import logging
+
+from src.utils.logger_config import setup_logging
 
 if getattr(sys, 'frozen', False):
     # Pokud běžíme jako EXE, nastavíme pracovní adresář na složku s EXE
@@ -23,14 +22,7 @@ from src.watchers.afk_watcher import get_afk_watcher
 from src.watchers.file_watcher import FileWatcher
 from src.core.engine import ContextEngine
 from src.gui.app import ContextFlowGUI
-from src.utils.paths import get_app_data_dir
 from src.utils.platform_handler import get_platform_handler
-
-def resource_path(relative_path):
-    """ Pomocná funkce pro získání absolutní cesty k prostředkům (pro PyInstaller) """
-    # getattr  zkontroluje, jestli _MEIPASS existuje, jinak použije aktuální složku
-    base_path = getattr(sys, '_MEIPASS', os.path.abspath("."))
-    return os.path.join(base_path, relative_path)
 
 class ContextFlowLauncher:
     def __init__(self):
@@ -51,41 +43,13 @@ class ContextFlowLauncher:
         self.fw = FileWatcher(self.indexer)
         self.engine = ContextEngine(self.watcher, self.indexer, self.db, afk_watcher=self.afk, settings=self.settings)
 
-        
         # Přidání do registry pro start se systémem
         handler = get_platform_handler()
         handler.setup_autostart()
         
         # 2. VYTVOŘÍME GUI HNED (ale nezobrazíme)
-        self.icon_path = resource_path("src/gui/assets/icon.ico")
         self.gui = ContextFlowGUI(launcher=self)
         self.gui.withdraw() # Skryje okno
-
-        # Ikona vlevo nahoře v okně
-        try:
-            self.gui.iconbitmap(self.icon_path)
-        except Exception as e:
-            logging.info(f"Nepodařilo se načíst ikonu okna: {e}")
-        self.gui.protocol("WM_DELETE_WINDOW", self.hide_gui)
-
-        # 3. NASTAVENÍ TRAY IKONKY
-        try:
-            tray_img = Image.open(self.icon_path)
-        except Exception as e:
-            logging.info(f"Ikonku v {self.icon_path} se nepodařilo načíst: {e}")
-            tray_img = Image.new('RGB', (64, 64), color=(31, 83, 141))
-
-        self.icon = pystray.Icon("ContextFlow", tray_img, "ContextFlow", menu=pystray.Menu(
-            pystray.MenuItem("Otevřít přehled", self.show_gui),
-            pystray.MenuItem("Ukončit", self.quit_app)
-        ))
-
-    def show_gui(self, icon=None, item=None):
-        self.gui.after(0, self.gui.deiconify)
-        self.gui.after(0, self.gui.focus_force)
-
-    def hide_gui(self):
-        self.gui.withdraw()
 
     def run_engine_loop(self):
         try:
@@ -101,36 +65,35 @@ class ContextFlowLauncher:
         # B. FileWatcher ve vlákně
         self.fw.start()
 
-        # C. Tray ikona v samostatném vlákně!
-        # Používáme daemon=True, aby se vlákno ukončilo s aplikací
-        self.tray_thread = threading.Thread(target=self.icon.run, daemon=True)
-        self.tray_thread.start()
-
-        # D. GUI MAINLOOP V HLAVNÍM VLÁKNĚ
-        logging.info("✓ ContextFlow běží. GUI v hlavním vlákně, Tray ve vedlejším.")
+        # C. GUI MAINLOOP V HLAVNÍM VLÁKNĚ
+        logging.info("✓ ContextFlow běží. GUI v hlavním vlákně.")
         logging.info(self.indexer.lookup_map) # Pro debugování indexu při startu
+        
         self.gui.mainloop()
 
-    def quit_app(self, icon=None, item=None):
+        # D. Cleanup po ukončení GUI mainloopu
+        self.shutdown_cleanup()
+
+    def quit_app(self):
         logging.info("Ukončování...")
         
-        # 1. Zastavíme tray a engine (věci mimo GUI)
-        self.icon.stop()
-        self.engine.stop()
-        self.fw.stop()
+        # Zastavíme engine a file watcher
+        if self.engine:
+            self.engine.stop()
+        if self.fw:
+            self.fw.stop()
         
-        # 2. Pošleme vzkaz GUI, aby přestalo pracovat
+        # Pošleme vzkaz GUI, aby přestalo pracovat a ukončilo mainloop
         if self.gui:
-            # Zrušíme všechny naplánované úkoly (after callbacky)
-            # a ukončíme mainloop v hlavním vlákně
             self.gui.after(0, self.gui.quit)
+
+    def shutdown_cleanup(self):
+        """Volá se bezprostředně po ukončení self.gui.mainloop() pro bezpečné zavření."""
+        logging.info("Zavírám databázi a ukládám stav...")
+        if hasattr(self, 'db') and hasattr(self.db, 'engine'):
+            self.db.engine.dispose()
             
-        # 3. Počkáme zlomek sekundy, aby mainloop v start() mohl skončit
-        # a pak teprve násilně ukončíme proces
-        threading.Timer(0.2, lambda: os._exit(0)).start()
-        
         logging.info("Všechna data uložena. Nashledanou.")
-        os._exit(0)
 
     def initial_setup(self):
         """Spustí onboarding okno z gui/frames."""
@@ -139,7 +102,6 @@ class ContextFlowLauncher:
         def handle_selection(path):
             selected_path.append(path)
 
-        # Spustíme naimportované okno
         setup_win = SetupWindow(on_folder_select=handle_selection)
         setup_win.mainloop()
 

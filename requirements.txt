@@ -18,7 +18,6 @@ pydantic_core==2.41.5
 Pygments==2.20.0
 pyinstaller==6.19.0
 pyinstaller-hooks-contrib==2026.4
-pynput==1.8.1
 pystray==0.19.5
 pytest==9.0.3
 pytest-mock==3.15.1
