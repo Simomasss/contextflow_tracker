@@ -4,14 +4,14 @@ from datetime import datetime
 from typing import Optional
 
 from ..watchers.window_watcher import BaseWindowWatcher
-from ..watchers.afk_watcher import AFKWatcher
+from ..watchers.afk_watcher import BaseAFKWatcher
 from .indexer import IndexManager
 from ..database.db_handler import DatabaseManager
 from ..core.schemas import WindowInfo, ContextMatch
 from ..core.config import AppSettings
 
 class ContextEngine:
-    def __init__(self, watcher: BaseWindowWatcher, indexer: IndexManager, db: DatabaseManager, afk_watcher: AFKWatcher, settings: AppSettings):
+    def __init__(self, watcher: BaseWindowWatcher, indexer: IndexManager, db: DatabaseManager, afk_watcher: BaseAFKWatcher, settings: AppSettings):
         """
         :param watcher: Instance WindowWatcheru
         :param indexer: Instance IndexManageru

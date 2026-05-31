@@ -2,7 +2,7 @@ import logging
 import time
 from src.database.db_handler import DatabaseManager
 from src.core.indexer import IndexManager
-from src.watchers.afk_watcher import AFKWatcher
+from src.watchers.afk_watcher import get_afk_watcher
 from src.watchers.window_watcher import get_window_watcher
 from src.watchers.file_watcher import FileWatcher
 from src.core.engine import ContextEngine
@@ -16,7 +16,7 @@ def main():
     db = DatabaseManager(settings=settings)
     indexer = IndexManager(settings.MAIN_FOLDER)
     watcher = get_window_watcher(settings.WHITELIST)
-    afk = AFKWatcher(threshold_seconds=settings.AFK_THRESHOLD)
+    afk = get_afk_watcher(threshold_seconds=settings.AFK_THRESHOLD)
     
     # 2. FILE WATCHER - Musíme ho vytvořit a SPUSTIT
     fw = FileWatcher(indexer)

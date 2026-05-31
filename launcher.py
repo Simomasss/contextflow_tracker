@@ -23,7 +23,7 @@ from src.database.db_handler import DatabaseManager
 from src.core.indexer import IndexManager
 from src.gui.frames.setup_window import SetupWindow
 from src.watchers.window_watcher import get_window_watcher
-from src.watchers.afk_watcher import AFKWatcher
+from src.watchers.afk_watcher import get_afk_watcher
 from src.watchers.file_watcher import FileWatcher
 from src.core.engine import ContextEngine
 from src.gui.app import ContextFlowGUI
@@ -120,7 +120,7 @@ class ContextFlowLauncher:
         self.db = DatabaseManager(settings=self.settings)
         self.indexer = IndexManager(self.settings.MAIN_FOLDER)
         self.watcher = get_window_watcher(self.settings.WHITELIST)
-        self.afk = AFKWatcher(threshold_seconds=self.settings.AFK_THRESHOLD)
+        self.afk = get_afk_watcher(threshold_seconds=self.settings.AFK_THRESHOLD)
         self.fw = FileWatcher(self.indexer)
         self.engine = ContextEngine(self.watcher, self.indexer, self.db, afk_watcher=self.afk, settings=self.settings)
 
@@ -269,7 +269,7 @@ class ContextFlowLauncher:
                 self.watcher = get_window_watcher(self.settings.WHITELIST)
                 self.indexer = IndexManager(self.settings.MAIN_FOLDER)
                 self.fw = FileWatcher(self.indexer)
-                self.afk = AFKWatcher(threshold_seconds=self.settings.AFK_THRESHOLD)
+                self.afk = get_afk_watcher(threshold_seconds=self.settings.AFK_THRESHOLD)
                 
                 self.engine = ContextEngine(
                     self.watcher, 
