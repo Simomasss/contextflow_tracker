@@ -13,9 +13,11 @@ Vetšina stávajících nástrojů na trhu vyžadují pozornost od uživatele.
 ContextFlow chce tuhle mezeru na trhu zaplnit plně pasivní aplikací, která načasuje veškerý odpracovaný čas pro účely fakturace a nebude vyžadovat žádnou interakci.
 
 ## 🚀 Upozornění pro uživatele (.exe verze)
-Pokud jste si stáhli samotný `.exe` soubor, **přesuňte ho před prvním spuštěním do nějaké vyhrazené složky** (např. ve vašem uživatelském profilu). 
+Zatím Contextflow funguje jen na Windows, ale pracuje se na rozšíření.
 
-Aplikace si při startu vytváří konfigurační soubory, logy a lokální SQLite databázi přímo ve svém adresáři. Spuštěním a následným přesunem ze složky Stažené soubory byste mohli přijít o svá naměřená data.
+Pokud jste si stáhli samotný `.exe` soubor, stačí ho jednoduše spustit. 
+
+Aplikace si při startu automaticky vytvoří potřebné konfigurační soubory, logy a lokální SQLite databázi ve vašem uživatelském profilu (ve složce `AppData/Local/ContextFlowTracker`). Zároveň je původní `.exe` soubor na svém místě nahrazen zástupcem, takže se nemusíte starat o jeho manuální přesouvání.
 
 ## 🛠️ Sestavení aplikace (Pro vývojáře)
 Pokud máte stažené zdrojové kódy a chcete si z nich vytvořit spustitelný `.exe` soubor sami, postupujte takto:
@@ -27,7 +29,7 @@ Pokud máte stažené zdrojové kódy a chcete si z nich vytvořit spustitelný 
 
 2. Ke zkompilování aplikace použijte nástroj `pyinstaller` s následujícími parametry:
    ```cmd
-   pyinstaller --noconsole --onefile --name "ContextFlow_v0.1.7" --icon="src/gui/assets/icon.ico" --add-data "src;src" --collect-submodules customtkinter launcher.py
+   pyinstaller --noconsole --onefile --name "ContextFlow_v0.1.8" --icon="src/gui/assets/icon.ico" --add-data "src;src" --collect-submodules customtkinter launcher.py
    ```
 
 Výsledný spustitelný soubor najdete ve složce `dist/`.

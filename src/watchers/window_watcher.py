@@ -1,31 +1,26 @@
-import win32gui
-import win32process
-import psutil
+import sys
+from abc import abstractmethod
 from typing import Optional, List
 from .base_watcher import BaseWatcher
 from ..core.schemas import WindowInfo
 
-class WindowWatcher(BaseWatcher):
+class BaseWindowWatcher(BaseWatcher):
     def __init__(self, whitelist: List[str]):
         self.whitelist = [exe.lower() for exe in whitelist]
 
+    @abstractmethod
     def watch(self) -> Optional[WindowInfo]:
-        hwnd = win32gui.GetForegroundWindow()
-        if not hwnd: return None
+        pass
 
-        try:
-            _, pid = win32process.GetWindowThreadProcessId(hwnd)
-            process = psutil.Process(pid)
-            exe_name = process.name().lower()
-
-            is_whitelisted = exe_name in self.whitelist
-            
-            return WindowInfo(
-                title=win32gui.GetWindowText(hwnd),
-                executable=exe_name,
-                is_whitelisted=is_whitelisted
-            )
-
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            pass
-        return None
+def get_window_watcher(whitelist: List[str]) -> BaseWindowWatcher:
+    """Tovární funkce pro vrácení správného watchera podle OS."""
+    if sys.platform == "win32":
+        from src.watchers.windows_window_watcher import WindowsWindowWatcher
+        return WindowsWindowWatcher(whitelist)
+    elif sys.platform == "darwin":
+        from src.watchers.mac_window_watcher import MacWindowWatcher
+        return MacWindowWatcher(whitelist)
+    else:
+        # Fallback na Linux a další
+        from src.watchers.linux_window_watcher import LinuxWindowWatcher
+        return LinuxWindowWatcher(whitelist)
