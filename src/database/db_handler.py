@@ -2,7 +2,7 @@ from typing import Optional
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from src.core.config import AppSettings
 from .models import Base, Client, Project, ActivityLog

@@ -2,7 +2,6 @@ import json
 import logging
 import os
 from dataclasses import dataclass, field, asdict
-import sys
 from typing import List
 
 from src.utils.paths import get_app_data_dir

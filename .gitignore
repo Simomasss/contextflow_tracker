@@ -21,7 +21,7 @@ settings.json
 
 # Dočasné soubory (faktury)
 *.pdf
-*.log
+*.log*
 
 # PyInstaller
 build/

@@ -1,5 +1,5 @@
 import subprocess
-from typing import Optional, List
+from typing import Optional
 from .window_watcher import BaseWindowWatcher
 from ..core.schemas import WindowInfo
 

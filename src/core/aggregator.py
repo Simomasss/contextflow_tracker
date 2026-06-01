@@ -1,5 +1,5 @@
-from datetime import datetime, date, timedelta, time
-from sqlalchemy import select, func
+from datetime import datetime, date, time
+from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 from ..database.models import ActivityLog, Project, Client, BillingProfile
 

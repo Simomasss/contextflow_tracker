@@ -1,5 +1,4 @@
 import logging
-import time
 from src.database.db_handler import DatabaseManager
 from src.core.indexer import IndexManager
 from src.watchers.afk_watcher import get_afk_watcher

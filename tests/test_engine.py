@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 
 from src.core.engine import ContextEngine
 from src.core.schemas import WindowInfo, ContextMatch

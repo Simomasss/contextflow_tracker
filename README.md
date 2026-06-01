@@ -13,7 +13,7 @@ Vetšina stávajících nástrojů na trhu vyžadují pozornost od uživatele.
 ContextFlow chce tuhle mezeru na trhu zaplnit plně pasivní aplikací, která načasuje veškerý odpracovaný čas pro účely fakturace a nebude vyžadovat žádnou interakci.
 
 ## 🚀 Upozornění pro uživatele (.exe verze)
-Zatím Contextflow funguje jen na Windows, ale pracuje se na rozšíření.
+Zatím Contextflow funguje garantovaně jen na Windows, zbylé OS jsou implementovány, ale nejsou zatím otestovány.
 
 Pokud jste si stáhli samotný `.exe` soubor, stačí ho jednoduše spustit. 
 
@@ -29,7 +29,8 @@ Pokud máte stažené zdrojové kódy a chcete si z nich vytvořit spustitelný 
 
 2. Ke zkompilování aplikace použijte nástroj `pyinstaller` s následujícími parametry:
    ```cmd
-   pyinstaller --noconsole --onefile --name "ContextFlow_v0.1.8" --icon="src/gui/assets/icon.ico" --add-data "src;src" --collect-submodules customtkinter launcher.py
+   pyinstaller --noconsole --onefile --name "ContextFlow_v0.2.2" --icon="src/gui/assets/icon.ico" --add-data "src/gui/assets/*;src/gui/assets" --collect-submodules customtkinter launcher.py
+
    ```
 
 Výsledný spustitelný soubor najdete ve složce `dist/`.
