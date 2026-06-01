@@ -15,9 +15,9 @@ ContextFlow chce tuhle mezeru na trhu zaplnit plně pasivní aplikací, která n
 ## 🚀 Upozornění pro uživatele (.exe verze)
 Zatím Contextflow funguje garantovaně jen na Windows, zbylé OS jsou implementovány, ale nejsou zatím otestovány.
 
-Pokud jste si stáhli samotný `.exe` soubor, stačí ho jednoduše spustit. 
+Pokud jste si stáhli samotný `.exe` soubor z releases, stačí ho jednoduše spustit. 
 
-Aplikace si při startu automaticky vytvoří potřebné konfigurační soubory, logy a lokální SQLite databázi ve vašem uživatelském profilu (ve složce `AppData/Local/ContextFlowTracker`). Zároveň je původní `.exe` soubor na svém místě nahrazen zástupcem, takže se nemusíte starat o jeho manuální přesouvání.
+Aplikace si při startu automaticky vytvoří potřebné konfigurační soubory, logy a lokální SQLite databázi ve vašem uživatelském profilu (ve složce `AppData/Local/ContextFlowTracker`). Zároveň je původní `.exe` soubor na svém místě nahrazen zástupcem, který si můžete dát kam chcete.
 
 ## 🛠️ Sestavení aplikace (Pro vývojáře)
 Pokud máte stažené zdrojové kódy a chcete si z nich vytvořit spustitelný `.exe` soubor sami, postupujte takto:

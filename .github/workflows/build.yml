@@ -1,10 +1,19 @@
-name: Build Application
+name: Build and Release Application
 
 on:
   push:
     branches:
       - main
       - master
+    tags:
+      - 'v*'  # Spustí se a vytvoří release, pokud pushnu tag jako v0.2.2, v1.0.0 atd.
+              #git add .
+              #git commit -m "Přidán Linux build a ..."
+              #git tag v0.2.2
+              #git push origin --tags
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   build-windows:
@@ -31,7 +40,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-build
-          path: dist/
+          path: dist/ContextFlow_Windows.exe
 
   build-mac:
     runs-on: macos-latest
@@ -57,4 +66,72 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: macos-build
-          path: dist/
+          path: dist/ContextFlow_Mac
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk libx11-6
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build executable
+        run: pyinstaller --onefile --noconsole --name "ContextFlow_Linux" --icon="src/gui/assets/icon.ico" --add-data "src/gui/assets/*:src/gui/assets" --collect-submodules customtkinter launcher.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: dist/ContextFlow_Linux
+
+  # TENTO JOB SE SPUSTÍ JENOM POKUD PUSHNU TAG (VERZI)
+  create-release:
+    needs: [build-windows, build-mac, build-linux]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    steps:
+      - name: Download Windows Build
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-build
+          path: ./release-assets
+
+      - name: Download Mac Build
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-build
+          path: ./release-assets
+
+      - name: Download Linux Build
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-build
+          path: ./release-assets
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          files: |
+            ./release-assets/ContextFlow_Windows.exe
+            ./release-assets/ContextFlow_Mac
+            ./release-assets/ContextFlow_Linux
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
