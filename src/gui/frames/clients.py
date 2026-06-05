@@ -2,9 +2,6 @@ import customtkinter as ctk
 from datetime import date, datetime, timedelta
 from tkinter import messagebox, filedialog
 import os
-from sqlalchemy import select
-
-from ...database.models import Project, Client, BillingProfile
 from ...billing.invoice_generator import InvoiceGenerator
 
 class ClientsFrame(ctk.CTkFrame):
@@ -59,25 +56,26 @@ class ClientsFrame(ctk.CTkFrame):
         for widget in self.detail_container.winfo_children():
             widget.destroy()
 
-        with self.aggregator.db.Session() as session:
-            client = session.get(Client, client_id)
-            profile = session.execute(select(BillingProfile)).scalar_one_or_none()
-            projects = session.execute(select(Project).where(Project.client_id == client_id)).scalars().all()
+        details = self.aggregator.db.get_billing_details(client_id)
+        if not details or not details.get("client"):
+            return
 
-        if not client: return
+        client = details["client"]
+        profile = details["profile"]
+        projects = details["projects"]
 
         # --- SEKCE 1: ODESÍLATEL ---
         self._add_section_label("ODESÍLATEL (Můj profil)")
         self.sender_entries = self._create_form(self.detail_container, {
-            "name": ("Jméno/Firma:", profile.name if profile else ""),
-            "address": ("Adresa:", profile.address if profile else ""),
-            "ico": ("IČO:", profile.ico if profile else ""),
-            "dic": ("DIČ:", profile.dic if profile else ""),
-            "bank": ("Bankovní účet:", profile.bank_account if profile else "")
+            "name": ("Jméno/Firma:", profile.get("name", "")),
+            "address": ("Adresa:", profile.get("address", "")),
+            "ico": ("IČO:", profile.get("ico", "")),
+            "dic": ("DIČ:", profile.get("dic", "")),
+            "bank": ("Bankovní účet:", profile.get("bank_account", ""))
         })
 
         # Výběr loga
-        self.current_logo_path = profile.logo_path if profile and profile.logo_path else ""
+        self.current_logo_path = profile.get("logo_path", "")
         logo_row = ctk.CTkFrame(self.detail_container, fg_color="transparent")
         logo_row.pack(fill="x", padx=20, pady=2)
         ctk.CTkLabel(logo_row, text="Logo:", width=120, anchor="w").pack(side="left")
@@ -95,13 +93,13 @@ class ClientsFrame(ctk.CTkFrame):
             self.clear_logo_btn.pack(side="left", padx=(5, 0))
 
         # --- SEKCE 2: PŘÍJEMCE ---
-        self._add_section_label(f"PŘÍJEMCE (Klient: {client.name})")
+        self._add_section_label(f"PŘÍJEMCE (Klient: {client['name']})")
         self.client_entries = self._create_form(self.detail_container, {
-            "name": ("Název klienta:", client.name),
-            "address": ("Adresa:", client.address or ""),
-            "ico": ("IČO:", client.ico or ""),
-            "dic": ("DIČ:", client.dic or ""),
-            "email": ("Email:", client.email or "")
+            "name": ("Název klienta:", client["name"]),
+            "address": ("Adresa:", client.get("address", "")),
+            "ico": ("IČO:", client.get("ico", "")),
+            "dic": ("DIČ:", client.get("dic", "")),
+            "email": ("Email:", client.get("email", ""))
         })
 
         # --- SEKCE 3: OBDOBÍ A PROJEKT ---
@@ -148,20 +146,20 @@ class ClientsFrame(ctk.CTkFrame):
             row.pack(fill="x", padx=5, pady=2)
             
             var = ctk.BooleanVar(value=False) 
-            self.project_vars[p.id] = var
+            self.project_vars[p["id"]] = var
             
-            cb = ctk.CTkCheckBox(row, text=f"{p.name}", variable=var, font=("Arial", 12))
+            cb = ctk.CTkCheckBox(row, text=f"{p['name']}", variable=var, font=("Arial", 12))
             cb.pack(side="left", padx=10, pady=5)
             
             hrs_label = ctk.CTkLabel(row, text="-- h", text_color="gray")
             hrs_label.pack(side="right", padx=10)
-            self.project_hour_labels[p.id] = hrs_label
+            self.project_hour_labels[p["id"]] = hrs_label
 
             # Vstupní pole pro hodinovou sazbu
             rate_entry = ctk.CTkEntry(row, width=80)
-            rate_entry.insert(0, str(p.hourly_rate or 0.0))
+            rate_entry.insert(0, str(p.get("hourly_rate", 0.0)))
             rate_entry.pack(side="right", padx=5)
-            self.project_rate_entries[p.id] = rate_entry
+            self.project_rate_entries[p["id"]] = rate_entry
 
             ctk.CTkLabel(row, text="Kč/h:", text_color="gray").pack(side="right")
 
@@ -206,8 +204,26 @@ class ClientsFrame(ctk.CTkFrame):
         self.logo_status_label.configure(text="Není vybráno", text_color="gray")
         self.clear_logo_btn.pack_forget()
 
-    def _save_project_rates(self, session):
-        """Pomocná metoda pro uložení hodinových sazeb z formuláře."""
+    def _get_form_data(self):
+        """Pomocná metoda pro načtení všech dat z formulářů a validaci sazeb."""
+        profile_data = {
+            "name": self.sender_entries["name"].get(),
+            "address": self.sender_entries["address"].get(),
+            "ico": self.sender_entries["ico"].get(),
+            "dic": self.sender_entries["dic"].get(),
+            "bank_account": self.sender_entries["bank"].get(),
+            "logo_path": self.current_logo_path
+        }
+        
+        client_data = {
+            "name": self.client_entries["name"].get(),
+            "address": self.client_entries["address"].get(),
+            "ico": self.client_entries["ico"].get(),
+            "dic": self.client_entries["dic"].get(),
+            "email": self.client_entries["email"].get()
+        }
+        
+        project_rates = {}
         for pid, entry in self.project_rate_entries.items():
             val_str = entry.get().strip()
             if not val_str:
@@ -218,41 +234,19 @@ class ClientsFrame(ctk.CTkFrame):
                     rate_val = float(val_str)
                 except ValueError:
                     raise ValueError(f"Hodinová sazba musí být číslo (zadáno: '{entry.get()}').")
-                    
-            proj = session.get(Project, pid)
-            if proj:
-                proj.hourly_rate = rate_val
-
-    def _save_form_data(self, session):
-        """Pomocná metoda pro uložení všech dat z formulářů (Odesílatel, Příjemce, Sazby)."""
-        profile = session.execute(select(BillingProfile)).scalar_one_or_none()
-        if not profile:
-            profile = BillingProfile(id=1)
-            session.add(profile)
-        
-        profile.name = self.sender_entries["name"].get()
-        profile.address = self.sender_entries["address"].get()
-        profile.ico = self.sender_entries["ico"].get()
-        profile.dic = self.sender_entries["dic"].get()
-        profile.bank_account = self.sender_entries["bank"].get()
-        profile.logo_path = self.current_logo_path
-
-        client = session.get(Client, self.selected_client_id)
-        if client:
-            client.name = self.client_entries["name"].get()
-            client.address = self.client_entries["address"].get()
-            client.ico = self.client_entries["ico"].get()
-            client.dic = self.client_entries["dic"].get()
-            client.email = self.client_entries["email"].get()
-
-        # Uložíme i sazby projektů
-        self._save_project_rates(session)
+            project_rates[pid] = rate_val
+            
+        return profile_data, client_data, project_rates
 
     def save_profiles(self):
         try:
-            with self.aggregator.db.Session() as session:
-                self._save_form_data(session)
-                session.commit()
+            profile_data, client_data, project_rates = self._get_form_data()
+            self.aggregator.db.save_billing_details(
+                self.selected_client_id, 
+                profile_data, 
+                client_data, 
+                project_rates
+            )
             messagebox.showinfo("Hotovo", "Údaje byly uloženy.")
             self.render_list()
         except Exception as e:
@@ -288,22 +282,21 @@ class ClientsFrame(ctk.CTkFrame):
     def generate_invoice(self):
         try:
             # Nejdříve uložíme VEŠKERÁ DATA (profily i sazby)
-            with self.aggregator.db.Session() as session:
-                self._save_form_data(session)
-                session.commit()
+            profile_data, client_data, project_rates = self._get_form_data()
+            self.aggregator.db.save_billing_details(
+                self.selected_client_id, 
+                profile_data, 
+                client_data, 
+                project_rates
+            )
 
-            # --- VALIDACE: Zkontrolujeme, jestli jsou profily uložené v DB ---
-            with self.aggregator.db.Session() as session:
-                profile = session.execute(select(BillingProfile)).scalar_one_or_none()
-                client = session.get(Client, self.selected_client_id)
-                
-                # Pokud profil nebo klient v DB chybí
-                if not profile or not profile.name or not client or not client.name:
-                    messagebox.showerror(
-                        "Chybějící údaje",
-                        "Vložte informace pro fakturu a následně uložte změny profilů."
-                    )
-                    return
+            # --- VALIDACE: Zkontrolujeme, jestli jsou profily platné ---
+            if not profile_data["name"] or not client_data["name"]:
+                messagebox.showerror(
+                    "Chybějící údaje",
+                    "Vložte informace pro fakturu a následně uložte změny profilů."
+                )
+                return
 
             selected_ids = [pid for pid, var in self.project_vars.items() if var.get()]
             if not selected_ids:

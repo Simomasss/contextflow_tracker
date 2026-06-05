@@ -86,7 +86,8 @@ class ContextEngine:
             new_match = None
             if match_dict:
                 new_match = ContextMatch(client_name=match_dict['client'], project_name=match_dict['project'])
-                logging.info(f"[MATCH] '{window.title}'") # ({window.executable}) -> [KLIENT]: {new_match.client_name} [PROJEKT]: {new_match.project_name}
+                matched_key = match_dict.get('matched_key', 'neznámý')
+                logging.info(f"[MATCH] '{window.title}' (Klíč: '{matched_key}') -> [KLIENT]: {new_match.client_name} [PROJEKT]: {new_match.project_name}")
         else:
             match_dict = None
             new_match = None

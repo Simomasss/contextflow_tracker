@@ -29,7 +29,7 @@ class IndexManager:
                 continue
             
             for project_dir in client_dir.iterdir():
-                if not project_dir.is_dir() or project_dir.name.startswith('.') or project_dir.name in self.IGNORED_DIR_NAMES:
+                if not project_dir.is_dir() or project_dir.name.startswith('.') or project_dir.name.lower() in self.IGNORED_DIR_NAMES:
                     continue
                 
                 p_info = {"client": client_dir.name, "project": project_dir.name}
@@ -38,13 +38,15 @@ class IndexManager:
                 if p_name_key not in new_map: new_map[p_name_key] = []
                 new_map[p_name_key].append(p_info)
                 
-                for item in project_dir.rglob("*"):
-                    # Filtry pro soubory uvnitř projektů
-                    if any(part.startswith('.') or part in self.IGNORED_DIR_NAMES for part in item.parts):
-                        continue
+                import os
+                for root, dirs, files in os.walk(str(project_dir)):
+                    # Modifikace dirs in-place způsobí, že os.walk do nich nevstoupí
+                    dirs[:] = [d for d in dirs if not d.startswith('.') and d.lower() not in self.IGNORED_DIR_NAMES]
                     
-                    if item.is_file():
-                        f_key = item.name.lower()
+                    for file in files:
+                        if file.startswith('.'):
+                            continue
+                        f_key = file.lower()
                         if len(f_key) < 4: continue
                         
                         if f_key not in new_map: new_map[f_key] = []
@@ -61,6 +63,7 @@ class IndexManager:
         title_lower = window_title.lower()
         best_match_projects: list[dict] = []
         max_key_len = 0
+        best_key = None
 
         # 1. Najdeme kandidáty (Regex + délka)
         for key, projects in self.lookup_map.items():
@@ -69,6 +72,7 @@ class IndexManager:
                 if len(key) > max_key_len:
                     max_key_len = len(key)
                     best_match_projects = list(projects) 
+                    best_key = key
                 elif len(key) == max_key_len and max_key_len > 0:
                     best_match_projects.extend(projects)
 
@@ -80,7 +84,8 @@ class IndexManager:
         if len(best_match_projects) > 1:
             for p in best_match_projects:
                 if p['project'].lower() in title_lower:
-                    return p
+                    return {"client": p['client'], "project": p['project'], "matched_key": best_key}
 
         # 3. Vrátíme první nalezený (vždy to bude dict ze seznamu)
-        return best_match_projects[0]
+        p = best_match_projects[0]
+        return {"client": p['client'], "project": p['project'], "matched_key": best_key}

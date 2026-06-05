@@ -49,7 +49,12 @@ class ContextFlowLauncher:
         
         # 2. VYTVOŘÍME GUI HNED (ale nezobrazíme)
         self.gui = ContextFlowGUI(launcher=self)
-        self.gui.withdraw() # Skryje okno
+        if sys.platform == "darwin":
+            # Na Macu pystray crashuje, takže používáme iconify (minimalizaci),
+            # aby okno zůstalo v Docku a šlo znovu otevřít.
+            self.gui.iconify()
+        else:
+            self.gui.withdraw() # Skryje okno
 
     def run_engine_loop(self):
         try:
@@ -135,6 +140,16 @@ class ContextFlowLauncher:
                 time.sleep(1)
 
                 # 2. Reinicializace komponent
+                if hasattr(self, 'db') and hasattr(self.db, 'engine'):
+                    self.db.engine.dispose()
+                
+                self.db = DatabaseManager(settings=self.settings)
+                
+                # Aktualizujeme reference v GUI a agregátoru
+                from src.core.aggregator import ActivityAggregator
+                self.gui.db = self.db
+                self.gui.aggregator = ActivityAggregator(self.db)
+
                 self.watcher = get_window_watcher(self.settings.WHITELIST)
                 self.indexer = IndexManager(self.settings.MAIN_FOLDER)
                 self.fw = FileWatcher(self.indexer)

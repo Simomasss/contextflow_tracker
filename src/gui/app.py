@@ -59,8 +59,12 @@ class ContextFlowGUI(ctk.CTk):
         except Exception as e:
             logging.info(f"Nepodařilo se načíst ikonu okna: {e}")
             
-        self.protocol("WM_DELETE_WINDOW", self.hide_gui)
-        self.setup_tray()
+        # macOS → minimize, Linux/Win → hide
+        if sys.platform == "darwin":
+            self.protocol("WM_DELETE_WINDOW", self.iconify)
+        else:
+            self.protocol("WM_DELETE_WINDOW", self.hide_gui)
+            self.setup_tray()
 
         # Spustíme domovskou stránku
         self.show_home()
@@ -88,7 +92,8 @@ class ContextFlowGUI(ctk.CTk):
         self.withdraw()
 
     def quit_app(self, icon=None, item=None):
-        self.tray_icon.stop()
+        if hasattr(self, 'tray_icon'):
+            self.tray_icon.stop()
         self.launcher.quit_app()
 
     def show_home(self):

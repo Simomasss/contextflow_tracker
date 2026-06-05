@@ -7,6 +7,8 @@ from src.watchers.file_watcher import FileWatcher
 from src.core.engine import ContextEngine
 from src.core.config import AppSettings
 
+# Není to hlavní soubor, hlavní soubor je launcher.py
+
 def main():
     # Nastavení
     settings = AppSettings()

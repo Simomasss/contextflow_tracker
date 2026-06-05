@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 
 from src.core.config import AppSettings
-from .models import Base, Client, Project, ActivityLog
+from .models import Base, Client, Project, ActivityLog, BillingProfile
 from sqlalchemy import event
 from ..core.config import AppSettings
 
@@ -109,3 +109,75 @@ class DatabaseManager:
                 session.commit()
                 return True
             return False
+
+    def get_billing_details(self, client_id: int) -> dict:
+        """Vrátí kompletní údaje o odesílateli, klientovi a jeho projektech."""
+        with self.Session() as session:
+            client = session.get(Client, client_id)
+            if not client:
+                return {}
+            
+            profile = session.execute(select(BillingProfile)).scalar_one_or_none()
+            projects = session.execute(
+                select(Project).where(Project.client_id == client_id)
+            ).scalars().all()
+            
+            return {
+                "client": {
+                    "id": client.id,
+                    "name": client.name,
+                    "address": client.address or "",
+                    "ico": client.ico or "",
+                    "dic": client.dic or "",
+                    "email": client.email or "",
+                },
+                "profile": {
+                    "name": profile.name if profile else "",
+                    "address": profile.address if profile else "",
+                    "ico": profile.ico if profile else "",
+                    "dic": profile.dic if profile else "",
+                    "bank_account": profile.bank_account if profile else "",
+                    "logo_path": profile.logo_path if profile else "",
+                },
+                "projects": [
+                    {
+                        "id": p.id,
+                        "name": p.name,
+                        "hourly_rate": p.hourly_rate or 0.0,
+                    }
+                    for p in projects
+                ]
+            }
+
+    def save_billing_details(self, client_id: int, profile_data: dict, client_data: dict, project_rates: dict) -> None:
+        """Uloží profil, klienta a hodinové sazby projektů v jedné transakci."""
+        with self.Session() as session:
+            # 1. Uložit profil
+            profile = session.execute(select(BillingProfile)).scalar_one_or_none()
+            if not profile:
+                profile = BillingProfile(id=1)
+                session.add(profile)
+            
+            profile.name = profile_data.get("name", "")
+            profile.address = profile_data.get("address", "")
+            profile.ico = profile_data.get("ico", "")
+            profile.dic = profile_data.get("dic", "")
+            profile.bank_account = profile_data.get("bank_account", "")
+            profile.logo_path = profile_data.get("logo_path", "")
+
+            # 2. Uložit klienta
+            client = session.get(Client, client_id)
+            if client:
+                client.name = client_data.get("name", "")
+                client.address = client_data.get("address", "")
+                client.ico = client_data.get("ico", "")
+                client.dic = client_data.get("dic", "")
+                client.email = client_data.get("email", "")
+
+            # 3. Uložit sazby projektů
+            for pid, rate in project_rates.items():
+                proj = session.get(Project, pid)
+                if proj:
+                    proj.hourly_rate = rate
+
+            session.commit()

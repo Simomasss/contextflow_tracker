@@ -54,6 +54,12 @@ class IndexUpdateHandler(FileSystemEventHandler):
         self.indexer.reindex()
         self.timer = None
 
+    def stop(self):
+        """Zruší aktivní časovač při ukončení sledování."""
+        if self.timer is not None:
+            self.timer.cancel()
+            self.timer = None
+
 class FileWatcher:
     """Obal pro watchdog observer."""
     def __init__(self, indexer):
@@ -72,5 +78,6 @@ class FileWatcher:
         logging.info(f"[FILE_WATCHER] Sledování spuštěno pro: {path_to_watch}")
 
     def stop(self):
+        self.handler.stop()
         self.observer.stop()
         self.observer.join()

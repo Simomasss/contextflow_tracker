@@ -22,9 +22,13 @@ class TestIndexManager(unittest.TestCase):
         (self.root / "ClientA" / "Project1" / "main.py").touch()
         (self.root / "ClientA" / "Project1" / ".vscode").mkdir()
         (self.root / "ClientA" / "Project1" / ".vscode" / "settings.json").touch()
+        (self.root / "ClientA" / "Project1" / "VENV").mkdir()
+        (self.root / "ClientA" / "Project1" / "VENV" / "ignored_by_venv.py").touch()
 
         (self.root / "ClientA" / "Project2").mkdir()
         (self.root / "ClientA" / "Project2" / "report.docx").touch()
+        (self.root / "ClientA" / "Project2" / "NODE_MODULES").mkdir()
+        (self.root / "ClientA" / "Project2" / "NODE_MODULES" / "ignored_by_nm.js").touch()
 
         (self.root / "ClientB").mkdir()
         (self.root / "ClientB" / "ProjectWithConflict").mkdir()
@@ -47,6 +51,8 @@ class TestIndexManager(unittest.TestCase):
         # Check ignored folders
         self.assertNotIn(".vscode", self.indexer.lookup_map)
         self.assertNotIn("settings.json", self.indexer.lookup_map)
+        self.assertNotIn("ignored_by_venv.py", self.indexer.lookup_map)
+        self.assertNotIn("ignored_by_nm.js", self.indexer.lookup_map)
 
         # Check content
         self.assertEqual(len(self.indexer.lookup_map["main.py"]), 2)
