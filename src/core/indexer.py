@@ -61,31 +61,39 @@ class IndexManager:
             return None
             
         title_lower = window_title.lower()
-        best_match_projects: list[dict] = []
-        max_key_len = 0
-        best_key = None
+        matched_candidates = []
 
-        # 1. Najdeme kandidáty (Regex + délka)
+        # 1. Najdeme VŠECHNY kandidáty, kteří se vyskytují v titulku okna
         for key, projects in self.lookup_map.items():
             pattern = r"\b" + re.escape(key) + r"\b"
             if re.search(pattern, title_lower):
-                if len(key) > max_key_len:
-                    max_key_len = len(key)
-                    best_match_projects = list(projects) 
-                    best_key = key
-                elif len(key) == max_key_len and max_key_len > 0:
-                    best_match_projects.extend(projects)
+                # Spočítáme váhu (raritu). Čím méně projektů soubor má, tím vyšší váha.
+                rarity_score = 1.0 / len(projects)
+                matched_candidates.append({
+                    "key": key,
+                    "projects": projects,
+                    "rarity": rarity_score,
+                    "length": len(key)
+                })
 
-        if not best_match_projects:
+        if not matched_candidates:
             return None
 
-        # 2. TIE-BREAKER: Pokud je kandidátů víc, zkusíme najít název projektu v titulku
-        # snaha o rozlišení mezi projekty, který mají stejný klíč (prace1.docx v projektA + prace1.docx v projektB)
+        # 2. Seřadíme kandidáty od nejlepšího:
+        # Primárně podle nejvyšší rarity, sekundárně podle délky klíče
+        matched_candidates.sort(key=lambda x: (x["rarity"], x["length"]), reverse=True)
+        
+        best_candidate = matched_candidates[0]
+        best_key = best_candidate["key"]
+        best_match_projects = best_candidate["projects"]
+
+        # 3. TIE-BREAKER pro konflikty: Pokud má i vítězný klíč váhu menší než 1.0 (je ve více projektech),
+        # zkusíme zjistit, jestli titulek okna náhodou neobsahuje i samotný název projektu.
         if len(best_match_projects) > 1:
             for p in best_match_projects:
                 if p['project'].lower() in title_lower:
                     return {"client": p['client'], "project": p['project'], "matched_key": best_key}
 
-        # 3. Vrátíme první nalezený (vždy to bude dict ze seznamu)
+        # 4. Pokud se konflikt nepodařilo rozseknout, prostě vrátíme první projekt
         p = best_match_projects[0]
         return {"client": p['client'], "project": p['project'], "matched_key": best_key}

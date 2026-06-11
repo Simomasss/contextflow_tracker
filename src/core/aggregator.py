@@ -137,6 +137,7 @@ class ActivityAggregator:
 
     def get_all_clients_summary(self):
         """Vrátí seznam všech klientů a jejich celkový čas v sekundách."""
+        from collections import defaultdict
         with self.db.Session() as session:
             # Načteme klienty i s jejich projekty, BEZ LOGŮ 
             stmt = select(Client).options(joinedload(Client.projects))
@@ -145,10 +146,16 @@ class ActivityAggregator:
             logs_stmt = select(ActivityLog.project_id, ActivityLog.start_time, ActivityLog.end_time)
             all_logs = session.execute(logs_stmt).all()
             
+            # OPTIMALIZACE: O(N) výpočet na úrovni Pythonu
+            # Předpočítáme si celkový čas (v sekundách) pro každý projekt zvlášť
+            project_totals = defaultdict(float)
+            for pid, start, end in all_logs:
+                project_totals[pid] += (end - start).total_seconds()
+            
             summary = []
             for c in clients:
-                project_ids = {p.id for p in c.projects}
-                total_sec = sum((end - start).total_seconds() for pid, start, end in all_logs if pid in project_ids)
+                # Sečteme předpočítané hodiny pouze pro projekty patřící tomuto klientovi
+                total_sec = sum(project_totals[p.id] for p in c.projects)
                 
                 summary.append({
                     "id": c.id,

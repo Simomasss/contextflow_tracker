@@ -283,6 +283,11 @@ class ClientsFrame(ctk.CTkFrame):
         try:
             # Nejdříve uložíme VEŠKERÁ DATA (profily i sazby)
             profile_data, client_data, project_rates = self._get_form_data()
+        except ValueError as e:
+            messagebox.showerror("Chyba", str(e))
+            return
+
+        try:
             self.aggregator.db.save_billing_details(
                 self.selected_client_id, 
                 profile_data, 
@@ -303,8 +308,12 @@ class ClientsFrame(ctk.CTkFrame):
                 messagebox.showwarning("Varování", "Vyberte alespoň jeden projekt!")
                 return
 
-            d_from = datetime.strptime(self.date_from.get(), "%d.%m.%Y").date()
-            d_to = datetime.strptime(self.date_to.get(), "%d.%m.%Y").date()
+            try:
+                d_from = datetime.strptime(self.date_from.get(), "%d.%m.%Y").date()
+                d_to = datetime.strptime(self.date_to.get(), "%d.%m.%Y").date()
+            except ValueError:
+                messagebox.showerror("Chyba", "Špatný formát data. Použijte DD.MM.RRRR")
+                return
 
             data = self.aggregator.get_invoice_data(selected_ids, d_from, d_to)
             gen = InvoiceGenerator(data)
@@ -320,7 +329,5 @@ class ClientsFrame(ctk.CTkFrame):
             if save_path:
                 gen.generate(save_path)
                 messagebox.showinfo("Úspěch", f"Faktura s {len(data['jobs'])} projekty uložena do:\n{save_path}")
-        except ValueError:
-            messagebox.showerror("Chyba", "Špatný formát data. Použijte DD.MM.RRRR")
         except Exception as e:
             messagebox.showerror("Chyba", f"Generování selhalo: {e}")

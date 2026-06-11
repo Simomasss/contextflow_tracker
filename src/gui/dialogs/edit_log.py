@@ -17,17 +17,33 @@ class EditLogDialog(ctk.CTkToplevel):
 
         ctk.CTkLabel(self, text=f"Upravit čas\n{log.project.client.name} / {log.project.name}", font=("Arial", 16, "bold")).pack(pady=20)
 
-        # START TIME
-        ctk.CTkLabel(self, text="Začátek (HH:MM:SS):").pack()
-        self.start_entry = ctk.CTkEntry(self)
-        self.start_entry.insert(0, log.start_time.strftime("%H:%M:%S"))
-        self.start_entry.pack(pady=5)
+        # START DATETIME
+        start_frame = ctk.CTkFrame(self, fg_color="transparent")
+        start_frame.pack(pady=5)
+        
+        ctk.CTkLabel(start_frame, text="Začátek (DD.MM.RRRR a HH:MM:SS):").grid(row=0, column=0, columnspan=2, sticky="w")
+        
+        self.start_date_entry = ctk.CTkEntry(start_frame, width=120)
+        self.start_date_entry.insert(0, log.start_time.strftime("%d.%m.%Y"))
+        self.start_date_entry.grid(row=1, column=0, padx=5)
+        
+        self.start_time_entry = ctk.CTkEntry(start_frame, width=100)
+        self.start_time_entry.insert(0, log.start_time.strftime("%H:%M:%S"))
+        self.start_time_entry.grid(row=1, column=1, padx=5)
 
-        # END TIME
-        ctk.CTkLabel(self, text="Konec (HH:MM:SS):").pack()
-        self.end_entry = ctk.CTkEntry(self)
-        self.end_entry.insert(0, log.end_time.strftime("%H:%M:%S"))
-        self.end_entry.pack(pady=5)
+        # END DATETIME
+        end_frame = ctk.CTkFrame(self, fg_color="transparent")
+        end_frame.pack(pady=5)
+        
+        ctk.CTkLabel(end_frame, text="Konec (DD.MM.RRRR a HH:MM:SS):").grid(row=0, column=0, columnspan=2, sticky="w")
+        
+        self.end_date_entry = ctk.CTkEntry(end_frame, width=120)
+        self.end_date_entry.insert(0, log.end_time.strftime("%d.%m.%Y"))
+        self.end_date_entry.grid(row=1, column=0, padx=5)
+        
+        self.end_time_entry = ctk.CTkEntry(end_frame, width=100)
+        self.end_time_entry.insert(0, log.end_time.strftime("%H:%M:%S"))
+        self.end_time_entry.grid(row=1, column=1, padx=5)
 
         # Tlačítka
         btn_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -38,9 +54,11 @@ class EditLogDialog(ctk.CTkToplevel):
 
     def save_action(self):
         try:
-            base_date = self.log.start_time.date()
-            new_start = datetime.combine(base_date, datetime.strptime(self.start_entry.get(), "%H:%M:%S").time())
-            new_end = datetime.combine(base_date, datetime.strptime(self.end_entry.get(), "%H:%M:%S").time())
+            start_str = f"{self.start_date_entry.get().strip()} {self.start_time_entry.get().strip()}"
+            end_str = f"{self.end_date_entry.get().strip()} {self.end_time_entry.get().strip()}"
+            
+            new_start = datetime.strptime(start_str, "%d.%m.%Y %H:%M:%S")
+            new_end = datetime.strptime(end_str, "%d.%m.%Y %H:%M:%S")
 
             if new_start >= new_end:
                 messagebox.showerror("Chyba", "Konec musí být až po začátku!")
@@ -50,7 +68,7 @@ class EditLogDialog(ctk.CTkToplevel):
                 self.on_save()
                 self.destroy()
         except Exception as e:
-            messagebox.showerror("Chyba", "Neplatný formát času (použij HH:MM:SS)")
+            messagebox.showerror("Chyba", "Neplatný formát data nebo času (použij DD.MM.RRRR a HH:MM:SS)")
 
     def delete_action(self):
         if messagebox.askyesno("Smazat", "Opravdu smazat tento log?"):

@@ -73,6 +73,15 @@ class HomeFrame(ctk.CTkFrame):
 
     # --- NAVIGAČNÍ LOGIKA ---
 
+    def get_client_color(self, client_name) -> str:
+        if not hasattr(self, 'client_colors'):
+            self.client_colors = {}
+        if client_name not in self.client_colors:
+            COLORS = ["#3b8ed0", "#1f8d4e", "#d69e2e", "#8d1f1f", "#7d33ff", "#1fb18a"]
+            idx = len(self.client_colors)
+            self.client_colors[client_name] = COLORS[idx % len(COLORS)]
+        return self.client_colors[client_name]
+
     def prev_day(self):
         self.current_date -= timedelta(days=1)
         self.refresh_data()
@@ -88,6 +97,15 @@ class HomeFrame(ctk.CTkFrame):
     def refresh_data(self):
         formatted_date = self.current_date.strftime("%d. %m. %Y")
         self.date_label.configure(text=formatted_date)
+
+        # Načteme všechny klienty z DB a přiřadíme jim stabilní barvy podle abecedy
+        try:
+            all_clients = self.aggregator.get_all_clients_summary()
+            sorted_names = sorted([c["name"] for c in all_clients])
+            COLORS = ["#3b8ed0", "#1f8d4e", "#d69e2e", "#8d1f1f", "#7d33ff", "#1fb18a"]
+            self.client_colors = {name: COLORS[i % len(COLORS)] for i, name in enumerate(sorted_names)}
+        except Exception:
+            self.client_colors = {}
 
         logs = self.aggregator.get_raw_logs(
             datetime.combine(self.current_date, datetime.min.time()),
@@ -151,9 +169,6 @@ class HomeFrame(ctk.CTkFrame):
     def update_stats(self, target_date):
         stats = self.aggregator.get_daily_stats_v2(target_date)
         
-        # 1. Definice palety barev
-        COLORS = ["#3b8ed0", "#1f8d4e", "#d69e2e", "#8d1f1f", "#7d33ff", "#1fb18a"]
-        
         for widget in self.stats_frame.winfo_children():
             widget.destroy()
 
@@ -164,7 +179,7 @@ class HomeFrame(ctk.CTkFrame):
         total_day_seconds = sum(sum(p.values()) for p in stats.values())
 
         for i, (client, projects) in enumerate(stats.items()):
-            client_color = COLORS[i % len(COLORS)]
+            client_color = self.get_client_color(client)
             
             ctk.CTkLabel(
                 self.stats_frame, 
@@ -238,18 +253,12 @@ class HomeFrame(ctk.CTkFrame):
                 self.canvas.create_text(x, 65, text=f"{i:02}:00", fill="#666666", font=("Arial", 9))
 
         # 2. BLOKY AKTIVITY
-        colors = ["#1f538d", "#1f8d4e", "#8d531f", "#8d1f1f", "#5b1f8d"]
-        project_colors = {}
-        color_idx = 0
-
         day_start = datetime.combine(self.current_date, datetime.min.time())
         day_end = datetime.combine(self.current_date, datetime.max.time())
 
         for log in logs:
-            p_name = log.project.name
-            if p_name not in project_colors:
-                project_colors[p_name] = colors[color_idx % len(colors)]
-                color_idx += 1
+            c_name = log.project.client.name
+            client_color = self.get_client_color(c_name)
 
             actual_start = max(log.start_time, day_start)
             actual_end = min(log.end_time, day_end)
@@ -267,7 +276,7 @@ class HomeFrame(ctk.CTkFrame):
             rect_id = self.draw_rounded_rect(
                 x1, 25, x2, 55, 
                 radius=5, 
-                fill=project_colors[p_name], 
+                fill=client_color, 
                 outline=""
             )
             
