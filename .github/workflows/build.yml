@@ -9,7 +9,7 @@ on:
       - 'v*'  # Spustí se a vytvoří release, pokud pushnu tag jako v0.2.2, v1.0.0 atd.
               #git add .
               #git commit -m "Přidán Linux build a ..."
-              #git tag v0.2.2
+              #git tag v0.2.3 -- Verzování: při každým větším updatu (nové funkce, opravy) bych měl zvýšit tady verzi a pushnout tag, aby se spustil tento job a vytvořil release
               #git push origin --tags
 
 env:

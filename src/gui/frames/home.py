@@ -55,6 +55,19 @@ class HomeFrame(ctk.CTkFrame):
         self.logs_frame = ctk.CTkScrollableFrame(self, label_text="Detailní výpis aktivity")
         self.logs_frame.grid(row=2, column=0, sticky="nsew", padx=(10, 5), pady=10)
         
+        # OPTIMALIZACE (Object Pooling): Příprava záhlaví a recyklačního poolu pro logy
+        self.log_row_pool = [] 
+        self.logs_header = ctk.CTkFrame(self.logs_frame, fg_color="#333333", height=30)
+        self.logs_header.pack(fill="x", padx=5, pady=(0, 5))
+        self.logs_header.grid_columnconfigure(2, weight=1)
+        ctk.CTkLabel(self.logs_header, text="Čas", width=120).grid(row=0, column=0, padx=5, sticky="w")
+        ctk.CTkLabel(self.logs_header, text="Klient / Projekt", width=180, anchor="w").grid(row=0, column=1, padx=5, sticky="w")
+        ctk.CTkLabel(self.logs_header, text="Aktivita (Okno)", anchor="w").grid(row=0, column=2, padx=5, sticky="ew")
+        ctk.CTkLabel(self.logs_header, text="Akce", width=50).grid(row=0, column=3, padx=5)
+        
+        self.no_activity_label = ctk.CTkLabel(self.logs_frame, text="Dnes zatím žádná aktivita.")
+        self.no_activity_label.pack_forget()
+
         # --- BOTTOM RIGHT: SUMMARY STATS ---
         self.stats_frame = ctk.CTkScrollableFrame(self, label_text="Souhrn dne")
         self.stats_frame.grid(row=2, column=1, sticky="nsew", padx=(5, 10), pady=10)
@@ -98,14 +111,16 @@ class HomeFrame(ctk.CTkFrame):
         formatted_date = self.current_date.strftime("%d. %m. %Y")
         self.date_label.configure(text=formatted_date)
 
-        # Načteme všechny klienty z DB a přiřadíme jim stabilní barvy podle abecedy
-        try:
-            all_clients = self.aggregator.get_all_clients_summary()
-            sorted_names = sorted([c["name"] for c in all_clients])
-            COLORS = ["#3b8ed0", "#1f8d4e", "#d69e2e", "#8d1f1f", "#7d33ff", "#1fb18a"]
-            self.client_colors = {name: COLORS[i % len(COLORS)] for i, name in enumerate(sorted_names)}
-        except Exception:
-            self.client_colors = {}
+        # OPTIMALIZACE: Načteme a přiřadíme barvy klientům pouze jednou,
+        # abychom při každém přepnutí dne nevolali extrémně náročné get_all_clients_summary() nad celou DB
+        if getattr(self, 'client_colors', None) is None:
+            try:
+                all_clients = self.aggregator.get_all_clients_summary()
+                sorted_names = sorted([c["name"] for c in all_clients])
+                COLORS = ["#3b8ed0", "#1f8d4e", "#d69e2e", "#8d1f1f", "#7d33ff", "#1fb18a"]
+                self.client_colors = {name: COLORS[i % len(COLORS)] for i, name in enumerate(sorted_names)}
+            except Exception:
+                self.client_colors = {}
 
         logs = self.aggregator.get_raw_logs(
             datetime.combine(self.current_date, datetime.min.time()),
@@ -118,53 +133,67 @@ class HomeFrame(ctk.CTkFrame):
 
     
     def update_logs_list(self, logs):
-        # 1. Vyčistit starý seznam
-        for widget in self.logs_frame.winfo_children():
-            widget.destroy()
-
         self.log_to_row = {} # Vyčistit staré reference
         self.logs_frame.grid_columnconfigure(2, weight=1)
 
-        # 2. ZÁHLAVÍ (Header)
-        header_row = ctk.CTkFrame(self.logs_frame, fg_color="#333333", height=30)
-        header_row.pack(fill="x", padx=5, pady=(0, 5))
-        
-        header_row.grid_columnconfigure(2, weight=1)
-        
-        ctk.CTkLabel(header_row, text="Čas", width=120).grid(row=0, column=0, padx=5, sticky="w")
-        ctk.CTkLabel(header_row, text="Klient / Projekt", width=180, anchor="w").grid(row=0, column=1, padx=5, sticky="w")
-        ctk.CTkLabel(header_row, text="Aktivita (Okno)", anchor="w").grid(row=0, column=2, padx=5, sticky="ew")
-        ctk.CTkLabel(header_row, text="Akce", width=50).grid(row=0, column=3, padx=5)
-
         if not logs:
-            ctk.CTkLabel(self.logs_frame, text="Dnes zatím žádná aktivita.").pack(pady=20)
+            self.no_activity_label.pack(pady=20)
+            # Skrýt všechny widgety v poolu
+            for row_data in self.log_row_pool:
+                row_data["frame"].pack_forget()
             return
+        else:
+            self.no_activity_label.pack_forget()
 
-        # 3. DATA
-        for log in reversed(logs):
-            row = ctk.CTkFrame(self.logs_frame, fg_color="transparent")
-            row.pack(fill="x", padx=5, pady=2)
+        # 2. RECYKLACE DAT (Object Pooling)
+        for i, log in enumerate(reversed(logs)):
+            # Pokud nám došly předpřipravené řádky, vytvoříme nový a uložíme do poolu
+            if i >= len(self.log_row_pool):
+                row = ctk.CTkFrame(self.logs_frame, fg_color="transparent")
+                row.grid_columnconfigure(2, weight=1)
+                
+                t_lbl = ctk.CTkLabel(row, font=("Consolas", 11), width=120)
+                t_lbl.grid(row=0, column=0, padx=5)
+                
+                cp_lbl = ctk.CTkLabel(row, font=("Arial", 11, "bold"), width=180, anchor="w")
+                cp_lbl.grid(row=0, column=1, padx=5)
+                
+                w_lbl = ctk.CTkLabel(row, font=("Arial", 11), anchor="w")
+                w_lbl.grid(row=0, column=2, padx=5, sticky="ew")
+                
+                e_btn = ctk.CTkButton(row, text="✎", width=35, height=24, fg_color="#444444")
+                e_btn.grid(row=0, column=3, padx=5)
+                
+                self.log_row_pool.append({
+                    "frame": row, "time_lbl": t_lbl, "cp_lbl": cp_lbl, "win_lbl": w_lbl, "edit_btn": e_btn
+                })
 
-            # Uložíme si frame pod ID logu
-            self.log_to_row[log.id] = row
-            row.grid_columnconfigure(2, weight=1) # Sloupec s titulkem okna je pružný
+            # Získáme připravený řádek z poolu
+            row_data = self.log_row_pool[i]
             
-            # Čas
+            # Zobrazíme řádek a zresetujeme jeho pozadí
+            row_data["frame"].pack(fill="x", padx=5, pady=2)
+            row_data["frame"].configure(fg_color="transparent")
+
+            # Pouze aktualizujeme texty v labelech
             time_str = f"{log.start_time.strftime('%H:%M:%S')} - {log.end_time.strftime('%H:%M:%S')}"
-            ctk.CTkLabel(row, text=time_str, font=("Consolas", 11), width=120).grid(row=0, column=0, padx=5)
+            row_data["time_lbl"].configure(text=time_str)
             
-            # Klient / Projekt
             cp_text = f"{log.project.client.name} / {log.project.name}"
-            ctk.CTkLabel(row, text=cp_text, font=("Arial", 11, "bold"), width=180, anchor="w").grid(row=0, column=1, padx=5)
+            row_data["cp_lbl"].configure(text=cp_text)
             
             win_title = log.window_title[:60] + "..." if len(log.window_title) > 60 else log.window_title
-            ctk.CTkLabel(row, text=win_title, font=("Arial", 11), anchor="w").grid(row=0, column=2, padx=5, sticky="ew")
+            row_data["win_lbl"].configure(text=win_title)
             
-            edit_btn = ctk.CTkButton(
-                row, text="✎", width=35, height=24, fg_color="#444444",
-                command=lambda l=log: self.open_edit_dialog(l)
-            )
-            edit_btn.grid(row=0, column=3, padx=5)
+            # Aktualizujeme akci na tlačítku, aby bralo správný log!
+            row_data["edit_btn"].configure(command=lambda l=log: self.open_edit_dialog(l))
+            
+            # Přidáme do reference pro Canvas hover
+            self.log_to_row[log.id] = row_data["frame"]
+
+        # Skryjeme přebytečné staré řádky, pokud je logů méně než velikost poolu
+        for i in range(len(logs), len(self.log_row_pool)):
+            self.log_row_pool[i]["frame"].pack_forget()
             
     def update_stats(self, target_date):
         stats = self.aggregator.get_daily_stats_v2(target_date)
