@@ -2,8 +2,12 @@ import logging
 import os
 from pathlib import Path
 import threading
+import sys
 
-from watchdog.observers import Observer
+if sys.platform == "darwin":
+    from watchdog.observers.polling import PollingObserver as Observer
+else:
+    from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
 class IndexUpdateHandler(FileSystemEventHandler):

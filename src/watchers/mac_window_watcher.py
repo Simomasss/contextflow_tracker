@@ -27,8 +27,11 @@ class MacWindowWatcher(BaseWindowWatcher):
                 ["osascript", "-e", script],
                 capture_output=True,
                 text=True,
+                errors='replace',
                 timeout=1
             )
+            if result.returncode != 0:
+                return None
             output = result.stdout.strip()
             
             if not output or ":::" not in output:

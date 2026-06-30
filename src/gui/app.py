@@ -1,4 +1,3 @@
-import pystray
 from PIL import Image
 import threading
 import os
@@ -70,6 +69,7 @@ class ContextFlowGUI(ctk.CTk):
         self.show_home()
 
     def setup_tray(self):
+        import pystray
         try:
             tray_img = Image.open(self.icon_path)
         except Exception as e:

@@ -61,17 +61,24 @@ class EditLogDialog(ctk.CTkToplevel):
             new_end = datetime.strptime(end_str, "%d.%m.%Y %H:%M:%S")
 
             if new_start >= new_end:
+                self.attributes("-topmost", False)
                 messagebox.showerror("Chyba", "Konec musí být až po začátku!")
+                self.attributes("-topmost", True)
                 return
 
             if self.db.update_activity_log(self.log.id, new_start, new_end):
                 self.on_save()
                 self.destroy()
         except Exception as e:
+            self.attributes("-topmost", False)
             messagebox.showerror("Chyba", "Neplatný formát data nebo času (použij DD.MM.RRRR a HH:MM:SS)")
+            self.attributes("-topmost", True)
 
     def delete_action(self):
-        if messagebox.askyesno("Smazat", "Opravdu smazat tento log?"):
+        self.attributes("-topmost", False)
+        confirm = messagebox.askyesno("Smazat", "Opravdu smazat tento log?")
+        self.attributes("-topmost", True)
+        if confirm:
             if self.db.delete_activity_log(self.log.id):
                 self.on_save()
                 self.destroy()

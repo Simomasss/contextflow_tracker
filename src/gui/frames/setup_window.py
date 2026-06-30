@@ -137,7 +137,10 @@ class SetupWindow(ctk.CTk):
         self.show_step()
 
     def select_folder(self):
+        self.attributes("-topmost", False)
         path = filedialog.askdirectory(title="Vyberte vaši hlavní složku projektů (MAIN)")
         if path:
             self.on_folder_select(path)
             self.destroy()
+        else:
+            self.attributes("-topmost", True)

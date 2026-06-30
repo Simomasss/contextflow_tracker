@@ -11,60 +11,9 @@ from src.utils.platform_handler import BasePlatformHandler
 class MacPlatformHandler(BasePlatformHandler):
     def handle_installation(self) -> bool:
         """
-        Pokud je aplikace spuštěna jako binárka z náhodného místa,
-        přesune se automaticky do AppData (Library/Application Support) a na původním místě zanechá symlink.
+        Instalace se na Macu neprovádí automaticky (používá se spuštění přímo z .app bundle).
         """
-        if not getattr(sys, 'frozen', False):
-            return True
-
-        current_exe = os.path.abspath(sys.executable)
-        appdata_dir = get_app_data_dir()
-        # Pro Mac nebudeme přidávat .exe příponu
-        target_exe = os.path.join(appdata_dir, "ContextFlow")
-
-        if os.path.normcase(current_exe) == os.path.normcase(target_exe):
-            return True
-
-        os.makedirs(appdata_dir, exist_ok=True)
-
-        try:
-            logging.info(f"Probíhá instalace binárky do: {target_exe}")
-            shutil.copy2(current_exe, target_exe)
-            
-            # Ujistíme se, že má správná práva pro spuštění
-            os.chmod(target_exe, 0o755)
-
-            original_dir = os.path.dirname(current_exe)
-            original_name = os.path.basename(current_exe)
-            shortcut_path = os.path.join(original_dir, f"{original_name}_shortcut")
-
-            # Místo VBScriptu (Windows) vytvoříme na Macu symbolický link
-            if not os.path.exists(shortcut_path):
-                try:
-                    os.symlink(target_exe, shortcut_path)
-                except Exception as e:
-                    logging.warning(f"Nelze vytvořit symlink: {e}")
-
-            # Shell skript pro smazání staré binárky a spuštění nové
-            bash_path = os.path.join(tempfile.gettempdir(), "cf_migrate.sh")
-            with open(bash_path, "w", encoding="utf-8") as f:
-                f.write("#!/bin/bash\n")
-                f.write("sleep 2\n") # Počkat na ukončení starého procesu
-                f.write(f'rm -f "{current_exe}"\n')
-                f.write(f'"{target_exe}" &\n')
-                f.write(f'rm -f "$0"\n') # Smazat sám sebe
-
-            os.chmod(bash_path, 0o755)
-            # Spustit bash skript na pozadí, odděleně od aktuální session
-            subprocess.Popen([bash_path], start_new_session=True)
-            
-            logging.info("Aplikace byla úspěšně přesunuta. Restartuji...")
-            os._exit(0)
-
-        except Exception as e:
-            logging.error(f"Nepodařilo se přesunout aplikaci do AppData: {e}")
-            return False
-            
+        logging.info("macOS detekován - automatická instalace/přesun přeskočen.")
         return True
 
     def _get_plist_path(self) -> str:
@@ -73,7 +22,9 @@ class MacPlatformHandler(BasePlatformHandler):
     def setup_autostart(self) -> bool:
         """Přidá aktuální binárku do LaunchAgents pro start po zapnutí Macu."""
         if getattr(sys, 'frozen', False):
+            import html
             app_path = sys.executable
+            escaped_app_path = html.escape(app_path)
             plist_path = self._get_plist_path()
             
             plist_content = f"""<?xml version="1.0" encoding="UTF-8"?>
@@ -84,7 +35,7 @@ class MacPlatformHandler(BasePlatformHandler):
     <string>com.contextflow.tracker</string>
     <key>ProgramArguments</key>
     <array>
-        <string>{app_path}</string>
+        <string>{escaped_app_path}</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
@@ -140,7 +91,7 @@ class MacPlatformHandler(BasePlatformHandler):
                     
                 if os.path.exists(log_file):
                     shutil.copy2(log_file, backup_path)
-                    logging.info("✓ Logy zálohovány do Stažených souborů.")
+                    logging.info("✓ Logy zálohovány do Stažených soubufů.")
                     
             except Exception as e:
                 logging.error(f"Nepodařilo se vytvořit zálohu: {e}")
@@ -152,7 +103,11 @@ class MacPlatformHandler(BasePlatformHandler):
             # Pro Mac použijeme bash příkazy, start_new_session zajistí, že běží i po ukončení aplikace
             cmd_parts = ["sleep 3", f'rm -rf "{app_data_dir}"']
             if is_exe and exe_path and not os.path.normcase(exe_path).startswith(os.path.normcase(app_data_dir)):
-                cmd_parts.append(f'rm -f "{exe_path}"')
+                if ".app/Contents/MacOS" in exe_path:
+                    bundle_path = exe_path.split(".app/Contents/MacOS")[0] + ".app"
+                    cmd_parts.append(f'rm -rf "{bundle_path}"')
+                else:
+                    cmd_parts.append(f'rm -f "{exe_path}"')
                 
             cmd = " ; ".join(cmd_parts)
             subprocess.Popen(['sh', '-c', cmd], start_new_session=True)

@@ -8,6 +8,7 @@ class MacAFKWatcher(BaseAFKWatcher):
             output = subprocess.check_output(
                 ["ioreg", "-c", "IOHIDSystem"],
                 text=True,
+                errors='replace',
                 stderr=subprocess.DEVNULL
             )
             for line in output.splitlines():

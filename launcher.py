@@ -52,6 +52,7 @@ class ContextFlowLauncher:
         if sys.platform == "darwin":
             # Na Macu pystray crashuje, takže používáme iconify (minimalizaci),
             # aby okno zůstalo v Docku a šlo znovu otevřít.
+            self.gui.update_idletasks()
             self.gui.iconify()
         else:
             self.gui.withdraw() # Skryje okno

@@ -55,7 +55,7 @@ class LinuxAFKWatcher(BaseAFKWatcher):
                 ['gdbus', 'call', '--session', '--dest', 'org.gnome.Mutter.IdleMonitor', 
                  '--object-path', '/org/gnome/Mutter/IdleMonitor/Core', 
                  '--method', 'org.gnome.Mutter.IdleMonitor.GetIdletime'], 
-                stderr=subprocess.DEVNULL, text=True
+                stderr=subprocess.DEVNULL, text=True, errors='replace'
             )
             # Očekávaný výstup např.: (uint64 12345,)
             if output and 'uint64' in output:

@@ -62,11 +62,16 @@ jobs:
       - name: Build executable
         run: pyinstaller --onefile --noconsole --name "ContextFlow_Mac" --icon="src/gui/assets/icon.ico" --add-data "src/gui/assets/*:src/gui/assets" --collect-submodules customtkinter launcher.py
 
+      - name: Compress App Bundle
+        run: |
+          cd dist
+          zip -r ContextFlow_Mac.zip ContextFlow_Mac.app
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: macos-build
-          path: dist/ContextFlow_Mac
+          path: dist/ContextFlow_Mac.zip
 
   build-linux:
     runs-on: ubuntu-latest
@@ -131,7 +136,7 @@ jobs:
           prerelease: false
           files: |
             ./release-assets/ContextFlow_Windows.exe
-            ./release-assets/ContextFlow_Mac
+            ./release-assets/ContextFlow_Mac.zip
             ./release-assets/ContextFlow_Linux
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

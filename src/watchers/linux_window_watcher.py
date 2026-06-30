@@ -10,7 +10,7 @@ class LinuxWindowWatcher(BaseWindowWatcher):
             root_prop = subprocess.check_output(
                 ['xprop', '-root', '_NET_ACTIVE_WINDOW'], 
                 stderr=subprocess.DEVNULL
-            ).decode('utf-8').strip()
+            ).decode('utf-8', errors='replace').strip()
             
             if 'window id #' not in root_prop:
                 return None
@@ -23,7 +23,7 @@ class LinuxWindowWatcher(BaseWindowWatcher):
             win_prop = subprocess.check_output(
                 ['xprop', '-id', window_id, 'WM_NAME', 'WM_CLASS'], 
                 stderr=subprocess.DEVNULL
-            ).decode('utf-8')
+            ).decode('utf-8', errors='replace')
             
             title = ""
             executable = ""

@@ -11,60 +11,9 @@ from src.utils.platform_handler import BasePlatformHandler
 class LinuxPlatformHandler(BasePlatformHandler):
     def handle_installation(self) -> bool:
         """
-        Pokud je aplikace spuštěna jako binárka z náhodného místa,
-        přesune se automaticky do AppData (~/.local/share/ContextFlow) a na původním místě zanechá symlink.
+        Instalace se na Linuxu neprovádí automaticky.
         """
-        if not getattr(sys, 'frozen', False):
-            return True
-
-        current_exe = os.path.abspath(sys.executable)
-        appdata_dir = get_app_data_dir()
-        target_exe = os.path.join(appdata_dir, "ContextFlow")
-
-        if os.path.normcase(current_exe) == os.path.normcase(target_exe):
-            return True
-
-        os.makedirs(appdata_dir, exist_ok=True)
-
-        try:
-            logging.info(f"Probíhá instalace binárky do: {target_exe}")
-            shutil.copy2(current_exe, target_exe)
-            
-            # Ujistíme se, že má nová binárka správná práva pro spuštění (chmod +x)
-            os.chmod(target_exe, 0o755)
-
-            original_dir = os.path.dirname(current_exe)
-            original_name = os.path.basename(current_exe)
-            shortcut_path = os.path.join(original_dir, f"{original_name}_shortcut")
-
-            # Vytvoření symbolického linku (standard na Linuxu)
-            if not os.path.exists(shortcut_path):
-                try:
-                    os.symlink(target_exe, shortcut_path)
-                except Exception as e:
-                    logging.warning(f"Nelze vytvořit symlink: {e}")
-
-            # Shell skript pro smazání staré binárky a spuštění nové
-            bash_path = os.path.join(tempfile.gettempdir(), "cf_migrate.sh")
-            with open(bash_path, "w", encoding="utf-8") as f:
-                f.write("#!/bin/bash\n")
-                f.write("sleep 2\n") # Počkat na ukončení starého procesu
-                f.write(f'rm -f "{current_exe}"\n')
-                # Spuštění cílové aplikace odděleně od bash skriptu pomocí nohup
-                f.write(f'nohup "{target_exe}" > /dev/null 2>&1 &\n')
-                f.write(f'rm -f "$0"\n') # Smazat sám sebe
-
-            os.chmod(bash_path, 0o755)
-            # Spustit bash skript na pozadí v nové relaci
-            subprocess.Popen([bash_path], start_new_session=True)
-            
-            logging.info("Aplikace byla úspěšně přesunuta. Restartuji...")
-            os._exit(0)
-
-        except Exception as e:
-            logging.error(f"Nepodařilo se přesunout aplikaci do AppData: {e}")
-            return False
-            
+        logging.info("Linux detekován - automatická instalace/přesun přeskočen.")
         return True
 
     def _get_autostart_path(self) -> str:
@@ -79,7 +28,7 @@ class LinuxPlatformHandler(BasePlatformHandler):
             
             desktop_content = f"""[Desktop Entry]
 Type=Application
-Exec={app_path}
+Exec="{app_path}"
 Hidden=false
 NoDisplay=false
 X-GNOME-Autostart-enabled=true
